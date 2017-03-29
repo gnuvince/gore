@@ -36,6 +36,10 @@ impl Scanner {
         self.peek_at(self.pos)
     }
 
+    fn peek_next(&self) -> u8 {
+        self.peek_at(self.pos + 1)
+    }
+
     fn peek_at(&self, offset: usize) -> u8 {
         if offset >= self.src.len() {
             return 0;
@@ -65,6 +69,10 @@ impl Scanner {
 
     fn eof(&self) -> bool {
         self.peek() == 0
+    }
+
+    fn pos(&self) -> (usize, usize) {
+        (self.line, self.col)
     }
 
     pub fn next(&mut self) -> Result<Token> {
@@ -121,6 +129,10 @@ impl Scanner {
             return Ok(self.id_or_keyword());
         }
 
+        else if is_digit(self.peek()) {
+            return self.number();
+        }
+
         return Err(err(ET::Internal, self.line, self.col));
     }
 
@@ -164,7 +176,7 @@ impl Scanner {
 
     fn skip_block_comment(&mut self) -> Result<()> {
         // self.pos is still pointing at "/*"
-        let (line, col) = (self.line, self.col);
+        let (line, col) = self.pos();
         self.advance();
         self.advance();
         while !self.eof() && !self.looking_at(b"*/") {
@@ -181,7 +193,7 @@ impl Scanner {
     }
 
     fn id_or_keyword(&mut self) -> Token {
-        let (line, col) = (self.line, self.col);
+        let (line, col) = self.pos();
         let mut name = String::new();
         while is_alnum(self.peek()) {
             name.push(self.peek() as char);
@@ -211,6 +223,80 @@ impl Scanner {
         };
         return Token {ty: ty, line: line, col: col, lexeme: lexeme};
     }
+
+    fn number(&mut self) -> Result<Token> {
+        if self.looking_at(b"0x") || self.looking_at(b"0X") {
+            return self.hex();
+        } else if self.looking_at(b"0") {
+            return self.octal();
+        } else {
+            return self.decimal();
+        }
+    }
+
+    fn hex(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut digits = String::new();
+        // skip over "0x" or "0X"
+        self.advance();
+        self.advance();
+        while is_hex(self.peek()) {
+            digits.push(self.peek() as char);
+            self.advance();
+        }
+        if digits.is_empty() {
+            return Err(err(ET::MalformedHexLiteral, line, col));
+        } else {
+            return Ok(Token {
+                ty: TT::IntHex,
+                line: line,
+                col: col,
+                lexeme: Some(digits)
+            });
+        }
+    }
+
+    fn octal(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut digits = String::new();
+        // skip over "0"
+        self.advance();
+        while is_oct(self.peek()) {
+            digits.push(self.peek() as char);
+            self.advance();
+        }
+        if digits.is_empty() {
+            return Ok(Token {
+                ty: TT::IntDecimal,
+                line: line,
+                col: col,
+                lexeme: Some("0".to_string())
+            });
+        } else {
+            return Ok(Token {
+                ty: TT::IntOctal,
+                line: line,
+                col: col,
+                lexeme: Some(digits)
+            });
+        }
+    }
+
+    fn decimal(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut digits = String::new();
+        while is_digit(self.peek()) {
+            digits.push(self.peek() as char);
+            self.advance();
+        }
+        // TODO(vfoley): check for decimal point and scan float literal
+        return Ok(Token {
+            ty: TT::IntDecimal,
+            line: line,
+            col: col,
+            lexeme: Some(digits)
+        });
+    }
 }
 
 fn is_whitespace(b: u8) -> bool {
@@ -223,6 +309,14 @@ fn is_alpha(b: u8) -> bool {
 
 fn is_digit(b: u8) -> bool {
     b >= b'0' && b <= b'9'
+}
+
+fn is_hex(b: u8) -> bool {
+    is_digit(b) || (b >= b'a' && b <= b'f') || (b >= b'A' && b <= b'F')
+}
+
+fn is_oct(b: u8) -> bool {
+    b >= b'0' && b <= b'7'
 }
 
 fn is_alnum(b: u8) -> bool {
@@ -244,15 +338,15 @@ mod test {
         assert_eq!(tok_ty, expected_ty);
     }
 
-    fn assert_id(name: &str, src: &[u8]) {
+    fn assert_lexeme(expected: &str, src: &[u8]) {
         let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
         let mut scanner = super::Scanner::new("-".to_string(), src_vec);
         let tok_opt = scanner.next();
         match tok_opt {
-            Ok(Token { ty: TT::Id, lexeme: Some(actual), .. }) => {
-                assert_eq!(name, actual);
+            Ok(Token { lexeme: Some(actual), .. }) => {
+                assert_eq!(expected, actual);
             }
-            Ok(_) => { assert_eq!("assert_id", "didn't get an Id token"); }
+            Ok(_) => { assert_eq!("assert_id", "got token with no lexeme"); }
             Err(_) => { assert_eq!("assert_id", "got an error"); }
         }
     }
@@ -354,10 +448,112 @@ mod test {
         assert_tok(TT::Id, b"__LINE__");
         assert_tok(TT::Blank, b"_");
 
-        assert_id("foo", b"foo");
-        assert_id("Foo", b"Foo");
-        assert_id("_foo", b"_foo");
-        assert_id("_1", b"_1");
-        assert_id("__LINE__", b"__LINE__");
+        assert_lexeme("foo", b"foo");
+        assert_lexeme("Foo", b"Foo");
+        assert_lexeme("_foo", b"_foo");
+        assert_lexeme("_1", b"_1");
+        assert_lexeme("__LINE__", b"__LINE__");
+    }
+
+    #[test]
+    fn test_hex() {
+        assert_tok(TT::IntHex, b"0x0");
+        assert_tok(TT::IntHex, b"0x1");
+        assert_tok(TT::IntHex, b"0x2");
+        assert_tok(TT::IntHex, b"0x3");
+        assert_tok(TT::IntHex, b"0x4");
+        assert_tok(TT::IntHex, b"0x5");
+        assert_tok(TT::IntHex, b"0x6");
+        assert_tok(TT::IntHex, b"0x7");
+        assert_tok(TT::IntHex, b"0x8");
+        assert_tok(TT::IntHex, b"0x9");
+        assert_tok(TT::IntHex, b"0xa");
+        assert_tok(TT::IntHex, b"0xb");
+        assert_tok(TT::IntHex, b"0xc");
+        assert_tok(TT::IntHex, b"0xd");
+        assert_tok(TT::IntHex, b"0xe");
+        assert_tok(TT::IntHex, b"0xf");
+        assert_tok(TT::IntHex, b"0XA");
+        assert_tok(TT::IntHex, b"0XB");
+        assert_tok(TT::IntHex, b"0XC");
+        assert_tok(TT::IntHex, b"0XD");
+        assert_tok(TT::IntHex, b"0XE");
+        assert_tok(TT::IntHex, b"0XF");
+
+        assert_lexeme("0", b"0x0");
+        assert_lexeme("1", b"0x1");
+        assert_lexeme("2", b"0x2");
+        assert_lexeme("3", b"0x3");
+        assert_lexeme("4", b"0x4");
+        assert_lexeme("5", b"0x5");
+        assert_lexeme("6", b"0x6");
+        assert_lexeme("7", b"0x7");
+        assert_lexeme("8", b"0x8");
+        assert_lexeme("9", b"0x9");
+        assert_lexeme("a", b"0xa");
+        assert_lexeme("b", b"0xb");
+        assert_lexeme("c", b"0xc");
+        assert_lexeme("d", b"0xd");
+        assert_lexeme("e", b"0xe");
+        assert_lexeme("f", b"0xf");
+        assert_lexeme("A", b"0XA");
+        assert_lexeme("B", b"0XB");
+        assert_lexeme("C", b"0XC");
+        assert_lexeme("D", b"0XD");
+        assert_lexeme("E", b"0XE");
+        assert_lexeme("F", b"0XF");
+
+        assert_err(ET::MalformedHexLiteral, b"0x");
+        assert_err(ET::MalformedHexLiteral, b"0X");
+    }
+
+    #[test]
+    fn test_octal() {
+        assert_tok(TT::IntDecimal, b"0");
+        assert_tok(TT::IntOctal, b"01");
+        assert_tok(TT::IntOctal, b"02");
+        assert_tok(TT::IntOctal, b"03");
+        assert_tok(TT::IntOctal, b"04");
+        assert_tok(TT::IntOctal, b"05");
+        assert_tok(TT::IntOctal, b"06");
+        assert_tok(TT::IntOctal, b"07");
+        assert_tok(TT::IntOctal, b"0377");
+
+        assert_lexeme("0", b"0");
+        assert_lexeme("1", b"01");
+        assert_lexeme("2", b"02");
+        assert_lexeme("3", b"03");
+        assert_lexeme("4", b"04");
+        assert_lexeme("5", b"05");
+        assert_lexeme("6", b"06");
+        assert_lexeme("7", b"07");
+        assert_lexeme("377", b"0377");
+    }
+
+    #[test]
+    fn test_decimal() {
+        assert_tok(TT::IntDecimal, b"0");
+        assert_tok(TT::IntDecimal, b"1");
+        assert_tok(TT::IntDecimal, b"2");
+        assert_tok(TT::IntDecimal, b"3");
+        assert_tok(TT::IntDecimal, b"4");
+        assert_tok(TT::IntDecimal, b"5");
+        assert_tok(TT::IntDecimal, b"6");
+        assert_tok(TT::IntDecimal, b"7");
+        assert_tok(TT::IntDecimal, b"8");
+        assert_tok(TT::IntDecimal, b"9");
+        assert_tok(TT::IntDecimal, b"127");
+
+        assert_lexeme("0", b"0");
+        assert_lexeme("1", b"1");
+        assert_lexeme("2", b"2");
+        assert_lexeme("3", b"3");
+        assert_lexeme("4", b"4");
+        assert_lexeme("5", b"5");
+        assert_lexeme("6", b"6");
+        assert_lexeme("7", b"7");
+        assert_lexeme("8", b"8");
+        assert_lexeme("9", b"9");
+        assert_lexeme("127", b"127");
     }
 }

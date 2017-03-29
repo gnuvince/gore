@@ -5,7 +5,8 @@ pub enum GoreErrorType {
     Internal,
 
     // Scanner errors
-    TrailingBlockComment
+    TrailingBlockComment,
+    MalformedHexLiteral
 }
 
 #[derive(Debug)]
