@@ -108,11 +108,11 @@ impl fmt::Display for TokenType {
 
 
 #[derive(Debug)]
-struct Token {
-    ty: TokenType,
-    line: usize,
-    col: usize,
-    lexeme: Option<String>
+pub struct Token {
+    pub ty: TokenType,
+    pub line: usize,
+    pub col: usize,
+    pub lexeme: Option<String>
 }
 
 
@@ -125,5 +125,12 @@ impl fmt::Display for Token {
                    Some(ref s) => s
                }
         )
+    }
+}
+
+
+impl Token {
+    pub fn is_eof(&self) -> bool {
+        self.ty == TokenType::Eof
     }
 }
