@@ -169,7 +169,7 @@ impl Scanner {
         // self.pos is still pointing at "//"
         self.advance();
         self.advance();
-        while self.peek() != b'\n' {
+        while !self.eof() && self.peek() != b'\n' {
             self.advance();
         }
     }
@@ -415,6 +415,8 @@ mod test {
         assert_tok(TT::Dot, b"// comment\n.");
         assert_tok(TT::Dot, b"// comment 1\n  // comment 2\n\n.");
         assert_tok(TT::Dot, b"/* comment \n comment */   .");
+        assert_tok(TT::Eof, b"// only a line comment\n");
+        assert_tok(TT::Eof, b"// only a line comment");
         assert_err(ET::TrailingBlockComment, b"/* unfinished");
     }
 
