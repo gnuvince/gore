@@ -100,7 +100,7 @@ impl Scanner {
         else if self.looking_at(b"&&")  { return Ok(self.eat(2, TT::And)); }
         else if self.looking_at(b"||")  { return Ok(self.eat(2, TT::Or)); }
         else if self.looking_at(b"==")  { return Ok(self.eat(2, TT::Eq)); }
-        else if self.looking_at(b"!=")  { return Ok(self.eat(2, TT::Eq)); }
+        else if self.looking_at(b"!=")  { return Ok(self.eat(2, TT::Ne)); }
         else if self.looking_at(b"<=")  { return Ok(self.eat(2, TT::Le)); }
         else if self.looking_at(b">=")  { return Ok(self.eat(2, TT::Ge)); }
         else if self.looking_at(b"+")   { return Ok(self.eat(1, TT::Plus)); }
@@ -389,7 +389,7 @@ mod test {
         assert_tok(TT::Or, b"||");
         assert_tok(TT::Not, b"!");
         assert_tok(TT::Eq, b"==");
-        assert_tok(TT::Eq, b"!=");
+        assert_tok(TT::Ne, b"!=");
         assert_tok(TT::Le, b"<=");
         assert_tok(TT::Lt, b"<");
         assert_tok(TT::Ge, b">=");
