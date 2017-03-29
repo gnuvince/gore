@@ -5,6 +5,7 @@ pub enum GoreErrorType {
     Internal,
 
     // Scanner errors
+    UnrecognizedCharacter,
     TrailingBlockComment,
     MalformedHexLiteral
 }

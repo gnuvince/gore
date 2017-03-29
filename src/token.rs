@@ -2,6 +2,9 @@ use std::fmt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
+    // Special tokens
+    None, Eof,
+
     // Go Keywords
     Break, Case, Continue, Default, Else, For,
     Func, If, Package, Return, Struct, Switch,
@@ -26,7 +29,6 @@ pub enum TokenType {
     LBracket, RBracket,                          // [ ]
     LBrace, RBrace,                              // { }
     Comma, Dot, Semi, Colon,                     // , . ; :
-    Eof
 }
 
 
@@ -34,6 +36,9 @@ impl fmt::Display for TokenType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::TokenType::*;
         let s = match *self {
+            Eof => "<eof>",
+            None => "<none>",
+
             Break => "break",
             Case => "case",
             Continue => "continue",
@@ -101,7 +106,6 @@ impl fmt::Display for TokenType {
             Dot => ".",
             Semi => ";",
             Colon => ":",
-            Eof => "<eof>"
         };
         write!(f, "{}", s)
     }

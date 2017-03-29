@@ -9,7 +9,8 @@ pub struct Scanner {
     src: Vec<u8>,
     pos: usize,
     line: usize,
-    col: usize
+    col: usize,
+    last_tok: TT
 }
 
 impl Scanner {
@@ -19,7 +20,8 @@ impl Scanner {
             src: src,
             pos: 0,
             line: 1,
-            col: 1
+            col: 1,
+            last_tok: TT::None
         }
     }
 
@@ -78,65 +80,73 @@ impl Scanner {
     pub fn next(&mut self) -> Result<Token> {
         let () = self.skip_whitespace_and_comments()?;
 
-        if self.eof() {
-            return Ok(Token { ty: TT::Eof, line: self.line, col: self.col, lexeme: None });
-        }
+        let tok = {
+            if self.eof() {
+                Token { ty: TT::Eof, line: self.line, col: self.col, lexeme: None }
+            }
 
-        // Operators and punctuation
-        else if self.looking_at(b"<<=") { return Ok(self.eat(3, TT::LeftShiftEq)); }
-        else if self.looking_at(b">>=") { return Ok(self.eat(3, TT::RightShiftEq)); }
-        else if self.looking_at(b"+=")  { return Ok(self.eat(2, TT::PlusEq)); }
-        else if self.looking_at(b"-=")  { return Ok(self.eat(2, TT::MinusEq)); }
-        else if self.looking_at(b"*=")  { return Ok(self.eat(2, TT::StarEq)); }
-        else if self.looking_at(b"/=")  { return Ok(self.eat(2, TT::SlashEq)); }
-        else if self.looking_at(b"%=")  { return Ok(self.eat(2, TT::PercentEq)); }
-        else if self.looking_at(b"|=")  { return Ok(self.eat(2, TT::BitorEq)); }
-        else if self.looking_at(b"&=")  { return Ok(self.eat(2, TT::BitandEq)); }
-        else if self.looking_at(b"++")  { return Ok(self.eat(2, TT::Incr)); }
-        else if self.looking_at(b"--")  { return Ok(self.eat(2, TT::Decr)); }
-        else if self.looking_at(b"<<")  { return Ok(self.eat(2, TT::LeftShift)); }
-        else if self.looking_at(b">>")  { return Ok(self.eat(2, TT::RightShift)); }
-        else if self.looking_at(b"&^")  { return Ok(self.eat(2, TT::BitClear)); }
-        else if self.looking_at(b"&&")  { return Ok(self.eat(2, TT::And)); }
-        else if self.looking_at(b"||")  { return Ok(self.eat(2, TT::Or)); }
-        else if self.looking_at(b"==")  { return Ok(self.eat(2, TT::Eq)); }
-        else if self.looking_at(b"!=")  { return Ok(self.eat(2, TT::Ne)); }
-        else if self.looking_at(b"<=")  { return Ok(self.eat(2, TT::Le)); }
-        else if self.looking_at(b">=")  { return Ok(self.eat(2, TT::Ge)); }
-        else if self.looking_at(b"+")   { return Ok(self.eat(1, TT::Plus)); }
-        else if self.looking_at(b"-")   { return Ok(self.eat(1, TT::Minus)); }
-        else if self.looking_at(b"*")   { return Ok(self.eat(1, TT::Star)); }
-        else if self.looking_at(b"/")   { return Ok(self.eat(1, TT::Slash)); }
-        else if self.looking_at(b"%")   { return Ok(self.eat(1, TT::Percent)); }
-        else if self.looking_at(b"^")   { return Ok(self.eat(1, TT::Bitnot)); }
-        else if self.looking_at(b"&")   { return Ok(self.eat(1, TT::Bitand)); }
-        else if self.looking_at(b"|")   { return Ok(self.eat(1, TT::Bitor)); }
-        else if self.looking_at(b"!")   { return Ok(self.eat(1, TT::Not)); }
-        else if self.looking_at(b"<")   { return Ok(self.eat(1, TT::Lt)); }
-        else if self.looking_at(b">")   { return Ok(self.eat(1, TT::Gt)); }
-        else if self.looking_at(b"(")   { return Ok(self.eat(1, TT::LParen)); }
-        else if self.looking_at(b")")   { return Ok(self.eat(1, TT::RParen)); }
-        else if self.looking_at(b"[")   { return Ok(self.eat(1, TT::LBracket)); }
-        else if self.looking_at(b"]")   { return Ok(self.eat(1, TT::RBracket)); }
-        else if self.looking_at(b"{")   { return Ok(self.eat(1, TT::LBrace)); }
-        else if self.looking_at(b"}")   { return Ok(self.eat(1, TT::RBrace)); }
-        else if self.looking_at(b",")   { return Ok(self.eat(1, TT::Comma)); }
-        else if self.looking_at(b";")   { return Ok(self.eat(1, TT::Semi)); }
-        else if self.looking_at(b":")   { return Ok(self.eat(1, TT::Colon)); }
-        else if self.peek() == b'.' && is_digit(self.peek_next()) {
-            return self.number();
-        }
-        else if self.looking_at(b".")   { return Ok(self.eat(1, TT::Dot)); }
+            // Operators and punctuation
+            else if self.looking_at(b"<<=") { self.eat(3, TT::LeftShiftEq) }
+            else if self.looking_at(b">>=") { self.eat(3, TT::RightShiftEq) }
+            else if self.looking_at(b"+=")  { self.eat(2, TT::PlusEq) }
+            else if self.looking_at(b"-=")  { self.eat(2, TT::MinusEq) }
+            else if self.looking_at(b"*=")  { self.eat(2, TT::StarEq) }
+            else if self.looking_at(b"/=")  { self.eat(2, TT::SlashEq) }
+            else if self.looking_at(b"%=")  { self.eat(2, TT::PercentEq) }
+            else if self.looking_at(b"|=")  { self.eat(2, TT::BitorEq) }
+            else if self.looking_at(b"&=")  { self.eat(2, TT::BitandEq) }
+            else if self.looking_at(b"++")  { self.eat(2, TT::Incr) }
+            else if self.looking_at(b"--")  { self.eat(2, TT::Decr) }
+            else if self.looking_at(b"<<")  { self.eat(2, TT::LeftShift) }
+            else if self.looking_at(b">>")  { self.eat(2, TT::RightShift) }
+            else if self.looking_at(b"&^")  { self.eat(2, TT::BitClear) }
+            else if self.looking_at(b"&&")  { self.eat(2, TT::And) }
+            else if self.looking_at(b"||")  { self.eat(2, TT::Or) }
+            else if self.looking_at(b"==")  { self.eat(2, TT::Eq) }
+            else if self.looking_at(b"!=")  { self.eat(2, TT::Ne) }
+            else if self.looking_at(b"<=")  { self.eat(2, TT::Le) }
+            else if self.looking_at(b">=")  { self.eat(2, TT::Ge) }
+            else if self.looking_at(b"+")   { self.eat(1, TT::Plus) }
+            else if self.looking_at(b"-")   { self.eat(1, TT::Minus) }
+            else if self.looking_at(b"*")   { self.eat(1, TT::Star) }
+            else if self.looking_at(b"/")   { self.eat(1, TT::Slash) }
+            else if self.looking_at(b"%")   { self.eat(1, TT::Percent) }
+            else if self.looking_at(b"^")   { self.eat(1, TT::Bitnot) }
+            else if self.looking_at(b"&")   { self.eat(1, TT::Bitand) }
+            else if self.looking_at(b"|")   { self.eat(1, TT::Bitor) }
+            else if self.looking_at(b"!")   { self.eat(1, TT::Not) }
+            else if self.looking_at(b"<")   { self.eat(1, TT::Lt) }
+            else if self.looking_at(b">")   { self.eat(1, TT::Gt) }
+            else if self.looking_at(b"(")   { self.eat(1, TT::LParen) }
+            else if self.looking_at(b")")   { self.eat(1, TT::RParen) }
+            else if self.looking_at(b"[")   { self.eat(1, TT::LBracket) }
+            else if self.looking_at(b"]")   { self.eat(1, TT::RBracket) }
+            else if self.looking_at(b"{")   { self.eat(1, TT::LBrace) }
+            else if self.looking_at(b"}")   { self.eat(1, TT::RBrace) }
+            else if self.looking_at(b",")   { self.eat(1, TT::Comma) }
+            else if self.looking_at(b";")   { self.eat(1, TT::Semi) }
+            else if self.looking_at(b":")   { self.eat(1, TT::Colon) }
+            // Special case: a float literal can start with a period in Go
+            else if self.peek() == b'.' && is_digit(self.peek_next()) {
+                self.number()?
+            }
+            else if self.looking_at(b".") {
+                self.eat(1, TT::Dot)
+            }
 
-        else if is_alpha(self.peek()) {
-            return Ok(self.id_or_keyword());
-        }
+            else if is_alpha(self.peek()) {
+                self.id_or_keyword()
+            }
 
-        else if is_digit(self.peek()) {
-            return self.number();
-        }
-
-        return Err(err(ET::Internal, self.line, self.col));
+            else if is_digit(self.peek()) {
+                self.number()?
+            }
+            else {
+                return Err(err(ET::UnrecognizedCharacter, self.line, self.col));
+            }
+        };
+        self.last_tok = tok.ty;
+        return Ok(tok);
     }
 
     // TODO(vfoley): ugly and nasty, refactor.
@@ -321,6 +331,7 @@ mod test {
     use ::token::Token;
     use ::token::TokenType as TT;
     use ::error::GoreErrorType as ET;
+    use super::Scanner;
 
     fn assert_tok(expected_ty: TT, src: &[u8]) {
         let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
@@ -351,6 +362,14 @@ mod test {
             Ok(_) => { assert_eq!("assert_eq", "got ok"); }
             Err(e) => { assert_eq!(expected_err, e.ty); }
         }
+    }
+
+    #[test]
+    fn test_invalid_characters() {
+        assert_err(ET::UnrecognizedCharacter, b"#");
+        assert_err(ET::UnrecognizedCharacter, b"$");
+        assert_err(ET::UnrecognizedCharacter, b"?");
+        assert_err(ET::UnrecognizedCharacter, b"~");
     }
 
     #[test]
@@ -563,5 +582,24 @@ mod test {
         assert_lexeme(".3", b".3");
         assert_lexeme("2.3", b"2.3");
         assert_lexeme("0.3", b"0.3");
+    }
+
+    #[test]
+    fn test_last_tok() {
+        let input = From::from(&(b"x += -4")[..]);
+        let mut s = Scanner::new("-".to_string(), input);
+        assert_eq!(TT::None, s.last_tok);
+
+        assert!(s.next().is_ok());
+        assert_eq!(TT::Id, s.last_tok);
+
+        assert!(s.next().is_ok());
+        assert_eq!(TT::PlusEq, s.last_tok);
+
+        assert!(s.next().is_ok());
+        assert_eq!(TT::Minus, s.last_tok);
+
+        assert!(s.next().is_ok());
+        assert_eq!(TT::Int, s.last_tok);
     }
 }
