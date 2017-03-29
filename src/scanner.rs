@@ -117,6 +117,10 @@ impl Scanner {
         else if self.looking_at(b";")   { return Ok(self.eat(1, TT::Semi)); }
         else if self.looking_at(b":")   { return Ok(self.eat(1, TT::Colon)); }
 
+        else if is_alpha(self.peek()) {
+            return Ok(self.id_or_keyword());
+        }
+
         return Err(err(ET::Internal, self.line, self.col));
     }
 
@@ -175,10 +179,54 @@ impl Scanner {
             return Ok(());
         }
     }
+
+    fn id_or_keyword(&mut self) -> Token {
+        let (line, col) = (self.line, self.col);
+        let mut name = String::new();
+        while is_alnum(self.peek()) {
+            name.push(self.peek() as char);
+            self.advance();
+        }
+
+        let (ty, lexeme) = {
+            if name == "_" { (TT::Blank, None) }
+            else if name == "break" { (TT::Break, None) }
+            else if name == "case" { (TT::Case, None) }
+            else if name == "continue" { (TT::Continue, None) }
+            else if name == "default" { (TT::Default, None) }
+            else if name == "else" { (TT::Else, None) }
+            else if name == "for" { (TT::For, None) }
+            else if name == "func" { (TT::Func, None) }
+            else if name == "if" { (TT::If, None) }
+            else if name == "package" { (TT::Package, None) }
+            else if name == "return" { (TT::Return, None) }
+            else if name == "struct" { (TT::Struct, None) }
+            else if name == "switch" { (TT::Switch, None) }
+            else if name == "type" { (TT::Type, None) }
+            else if name == "var" { (TT::Var, None) }
+            else if name == "append" { (TT::Append, None) }
+            else if name == "print" { (TT::Print, None) }
+            else if name == "println" { (TT::Println, None) }
+            else { (TT::Id, Some(name)) }
+        };
+        return Token {ty: ty, line: line, col: col, lexeme: lexeme};
+    }
 }
 
 fn is_whitespace(b: u8) -> bool {
     b == b' ' || b == b'\t' || b == b'\n'
+}
+
+fn is_alpha(b: u8) -> bool {
+    b == b'_' || (b >= b'a' && b <= b'z') || (b >= b'A' && b <= b'Z')
+}
+
+fn is_digit(b: u8) -> bool {
+    b >= b'0' && b <= b'9'
+}
+
+fn is_alnum(b: u8) -> bool {
+    is_alpha(b) || is_digit(b)
 }
 
 
@@ -274,5 +322,42 @@ mod test {
         assert_tok(TT::Dot, b"// comment 1\n  // comment 2\n\n.");
         assert_tok(TT::Dot, b"/* comment \n comment */   .");
         assert_err(ET::TrailingBlockComment, b"/* unfinished");
+    }
+
+    #[test]
+    fn test_keywords() {
+        assert_tok(TT::Break, b"break");
+        assert_tok(TT::Case, b"case");
+        assert_tok(TT::Continue, b"continue");
+        assert_tok(TT::Default, b"default");
+        assert_tok(TT::Else, b"else");
+        assert_tok(TT::For, b"for");
+        assert_tok(TT::Func, b"func");
+        assert_tok(TT::If, b"if");
+        assert_tok(TT::Package, b"package");
+        assert_tok(TT::Return, b"return");
+        assert_tok(TT::Struct, b"struct");
+        assert_tok(TT::Switch, b"switch");
+        assert_tok(TT::Type, b"type");
+        assert_tok(TT::Var, b"var");
+        assert_tok(TT::Append, b"append");
+        assert_tok(TT::Print, b"print");
+        assert_tok(TT::Println, b"println");
+    }
+
+    #[test]
+    fn test_ids() {
+        assert_tok(TT::Id, b"foo");
+        assert_tok(TT::Id, b"Foo");
+        assert_tok(TT::Id, b"_foo");
+        assert_tok(TT::Id, b"_1");
+        assert_tok(TT::Id, b"__LINE__");
+        assert_tok(TT::Blank, b"_");
+
+        assert_id("foo", b"foo");
+        assert_id("Foo", b"Foo");
+        assert_id("_foo", b"_foo");
+        assert_id("_1", b"_1");
+        assert_id("__LINE__", b"__LINE__");
     }
 }
