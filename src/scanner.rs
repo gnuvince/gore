@@ -121,9 +121,12 @@ impl Scanner {
         else if self.looking_at(b"{")   { return Ok(self.eat(1, TT::LBrace)); }
         else if self.looking_at(b"}")   { return Ok(self.eat(1, TT::RBrace)); }
         else if self.looking_at(b",")   { return Ok(self.eat(1, TT::Comma)); }
-        else if self.looking_at(b".")   { return Ok(self.eat(1, TT::Dot)); }
         else if self.looking_at(b";")   { return Ok(self.eat(1, TT::Semi)); }
         else if self.looking_at(b":")   { return Ok(self.eat(1, TT::Colon)); }
+        else if self.peek() == b'.' && is_digit(self.peek_next()) {
+            return self.number();
+        }
+        else if self.looking_at(b".")   { return Ok(self.eat(1, TT::Dot)); }
 
         else if is_alpha(self.peek()) {
             return Ok(self.id_or_keyword());
@@ -227,10 +230,8 @@ impl Scanner {
     fn number(&mut self) -> Result<Token> {
         if self.looking_at(b"0x") || self.looking_at(b"0X") {
             return self.hex();
-        } else if self.looking_at(b"0") {
-            return self.octal();
         } else {
-            return self.decimal();
+            return self.decimal_or_octal();
         }
     }
 
@@ -256,25 +257,22 @@ impl Scanner {
         }
     }
 
-    fn octal(&mut self) -> Result<Token> {
+    fn decimal_or_octal(&mut self) -> Result<Token> {
         let (line, col) = self.pos();
         let mut digits = String::new();
-        // skip over "0"
-        self.advance();
-        while is_oct(self.peek()) {
+
+        while is_digit(self.peek()) {
             digits.push(self.peek() as char);
             self.advance();
         }
-        if digits.is_empty() {
-            return Ok(Token {
-                ty: TT::IntDecimal,
-                line: line,
-                col: col,
-                lexeme: Some("0".to_string())
-            });
+
+        if self.peek() == b'.' {
+            digits.push('.');
+            self.advance();
+            return self.float_literal(line, col, digits);
         } else {
             return Ok(Token {
-                ty: TT::IntOctal,
+                ty: TT::Int,
                 line: line,
                 col: col,
                 lexeme: Some(digits)
@@ -282,20 +280,18 @@ impl Scanner {
         }
     }
 
-    fn decimal(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
-        let mut digits = String::new();
-        while is_digit(self.peek()) {
-            digits.push(self.peek() as char);
-            self.advance();
-        }
-        // TODO(vfoley): check for decimal point and scan float literal
-        return Ok(Token {
-            ty: TT::IntDecimal,
-            line: line,
-            col: col,
-            lexeme: Some(digits)
-        });
+    fn float_literal(&mut self, line: usize, col: usize, mut digits: String) ->
+        Result<Token> {
+            while is_digit(self.peek()) {
+                digits.push(self.peek() as char);
+                self.advance();
+            }
+            return Ok(Token {
+                ty: TT::Float,
+                line: line,
+                col: col,
+                lexeme: Some(digits)
+            });
     }
 }
 
@@ -313,10 +309,6 @@ fn is_digit(b: u8) -> bool {
 
 fn is_hex(b: u8) -> bool {
     is_digit(b) || (b >= b'a' && b <= b'f') || (b >= b'A' && b <= b'F')
-}
-
-fn is_oct(b: u8) -> bool {
-    b >= b'0' && b <= b'7'
 }
 
 fn is_alnum(b: u8) -> bool {
@@ -511,40 +503,40 @@ mod test {
 
     #[test]
     fn test_octal() {
-        assert_tok(TT::IntDecimal, b"0");
-        assert_tok(TT::IntOctal, b"01");
-        assert_tok(TT::IntOctal, b"02");
-        assert_tok(TT::IntOctal, b"03");
-        assert_tok(TT::IntOctal, b"04");
-        assert_tok(TT::IntOctal, b"05");
-        assert_tok(TT::IntOctal, b"06");
-        assert_tok(TT::IntOctal, b"07");
-        assert_tok(TT::IntOctal, b"0377");
+        assert_tok(TT::Int, b"0");
+        assert_tok(TT::Int, b"01");
+        assert_tok(TT::Int, b"02");
+        assert_tok(TT::Int, b"03");
+        assert_tok(TT::Int, b"04");
+        assert_tok(TT::Int, b"05");
+        assert_tok(TT::Int, b"06");
+        assert_tok(TT::Int, b"07");
+        assert_tok(TT::Int, b"0377");
 
         assert_lexeme("0", b"0");
-        assert_lexeme("1", b"01");
-        assert_lexeme("2", b"02");
-        assert_lexeme("3", b"03");
-        assert_lexeme("4", b"04");
-        assert_lexeme("5", b"05");
-        assert_lexeme("6", b"06");
-        assert_lexeme("7", b"07");
-        assert_lexeme("377", b"0377");
+        assert_lexeme("01", b"01");
+        assert_lexeme("02", b"02");
+        assert_lexeme("03", b"03");
+        assert_lexeme("04", b"04");
+        assert_lexeme("05", b"05");
+        assert_lexeme("06", b"06");
+        assert_lexeme("07", b"07");
+        assert_lexeme("0377", b"0377");
     }
 
     #[test]
     fn test_decimal() {
-        assert_tok(TT::IntDecimal, b"0");
-        assert_tok(TT::IntDecimal, b"1");
-        assert_tok(TT::IntDecimal, b"2");
-        assert_tok(TT::IntDecimal, b"3");
-        assert_tok(TT::IntDecimal, b"4");
-        assert_tok(TT::IntDecimal, b"5");
-        assert_tok(TT::IntDecimal, b"6");
-        assert_tok(TT::IntDecimal, b"7");
-        assert_tok(TT::IntDecimal, b"8");
-        assert_tok(TT::IntDecimal, b"9");
-        assert_tok(TT::IntDecimal, b"127");
+        assert_tok(TT::Int, b"0");
+        assert_tok(TT::Int, b"1");
+        assert_tok(TT::Int, b"2");
+        assert_tok(TT::Int, b"3");
+        assert_tok(TT::Int, b"4");
+        assert_tok(TT::Int, b"5");
+        assert_tok(TT::Int, b"6");
+        assert_tok(TT::Int, b"7");
+        assert_tok(TT::Int, b"8");
+        assert_tok(TT::Int, b"9");
+        assert_tok(TT::Int, b"127");
 
         assert_lexeme("0", b"0");
         assert_lexeme("1", b"1");
@@ -557,5 +549,19 @@ mod test {
         assert_lexeme("8", b"8");
         assert_lexeme("9", b"9");
         assert_lexeme("127", b"127");
+    }
+
+    #[test]
+    fn test_float_literal() {
+        assert_tok(TT::Dot, b".");
+        assert_tok(TT::Float, b"3.");
+        assert_tok(TT::Float, b".3");
+        assert_tok(TT::Float, b"2.3");
+        assert_tok(TT::Float, b"0.3");
+
+        assert_lexeme("3.", b"3.");
+        assert_lexeme(".3", b".3");
+        assert_lexeme("2.3", b"2.3");
+        assert_lexeme("0.3", b"0.3");
     }
 }
