@@ -170,6 +170,11 @@ impl Scanner {
     }
 
     // TODO(vfoley): ugly and nasty, refactor.
+    // The return type can be one of three things:
+    // - Ok(Some(Token{ ty: TT::Semi, .. })): when a semi-colon
+    //   must be inserted in the token stream;
+    // - Ok(None): when no token need be inserted in the stream;
+    // - Err(error): when an error occurs (e.g., trailing block comment)
     fn skip_whitespace_and_comments(&mut self) -> Result<Option<Token>> {
         loop {
             if is_whitespace(self.peek()) {
