@@ -19,7 +19,7 @@ pub enum TokenType {
     // Operators and punctuation
     Plus, Minus, Star, Slash, Percent,           // + - * / %
     PlusEq, MinusEq, StarEq, SlashEq, PercentEq, // += -= *= /= %=
-    Bitand, Bitor, Bitnot,                       // & | ^
+    Assign, Bitand, Bitor, Bitnot,               // = & | ^
     BitandEq, BitorEq,                           // &= |=
     LeftShift, RightShift, BitClear,             // << >> &^
     LeftShiftEq, RightShiftEq,                   // <<= >>=
@@ -75,6 +75,7 @@ impl fmt::Display for TokenType {
             StarEq => "*=",
             SlashEq => "/=",
             PercentEq => "%=",
+            Assign => "=",
             Bitand => "&",
             Bitor => "|",
             Bitnot => "^",

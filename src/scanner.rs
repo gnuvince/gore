@@ -126,6 +126,7 @@ impl Scanner {
             else if self.looking_at(b"!=")  { self.eat(2, TT::Ne) }
             else if self.looking_at(b"<=")  { self.eat(2, TT::Le) }
             else if self.looking_at(b">=")  { self.eat(2, TT::Ge) }
+            else if self.looking_at(b"=")   { self.eat(1, TT::Assign) }
             else if self.looking_at(b"+")   { self.eat(1, TT::Plus) }
             else if self.looking_at(b"-")   { self.eat(1, TT::Minus) }
             else if self.looking_at(b"*")   { self.eat(1, TT::Star) }
