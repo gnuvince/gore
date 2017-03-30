@@ -162,6 +162,12 @@ impl Scanner {
             else if is_digit(self.peek()) {
                 self.number()?
             }
+            else if self.peek() == b'"' {
+                self.interpreted_string()?
+            }
+            else if self.peek() == b'`' {
+                self.raw_string()?
+            }
             else {
                 return Err(err(ET::UnrecognizedCharacter, self.line, self.col));
             }
@@ -377,6 +383,92 @@ impl Scanner {
                 col: col,
                 lexeme: Some(digits)
             });
+    }
+
+    fn interpreted_string(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut content = String::new();
+
+        self.advance(); // consume opening double-quote
+        while self.peek() != b'"' {
+            if self.eof() {
+                return Err(err(ET::TrailingString, line, col));
+            }
+
+            if self.peek() == b'\\' {
+                self.advance();
+                let code: u8 = match self.peek() {
+                    b'a' => { 0x07 }
+                    b'b' => { 0x08 }
+                    b'f' => { 0x0c }
+                    b'n' => { 0x0a }
+                    b'r' => { 0x0d }
+                    b't' => { 0x09 }
+                    b'v' => { 0x0b }
+                    b'\\' => { 0x5c }
+                    b'"' => { 0x22 }
+                    _ => { return Err(err(ET::InvalidEscape, self.line, self.col)); }
+                };
+                content.push(code as char);
+                self.advance();
+            } else if self.peek() == b'\n' {
+                return Err(err(ET::NewlineInString, self.line, self.col));
+            } else {
+                content.push(self.peek() as char);
+                self.advance();
+            }
+        }
+        self.advance();
+
+        return Ok(Token {
+            ty: TT::String,
+            line: line,
+            col: col,
+            lexeme: Some(content)
+        });
+    }
+
+    fn raw_string(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut content = String::new();
+
+        self.advance(); // consume opening back-quote
+        while self.peek() != b'`' {
+            if self.eof() {
+                return Err(err(ET::TrailingString, line, col));
+            }
+            // Carriage returns are discarded in raw strings
+            if self.looking_at(b"\\r") {
+                self.advance();
+                self.advance();
+            } else {
+                content.push(self.peek() as char);
+                self.advance();
+            }
+        }
+        self.advance();
+
+        return Ok(Token {
+            ty: TT::String,
+            line: line,
+            col: col,
+            lexeme: Some(content)
+        });
+    }
+
+    fn make_string(&mut self, line: usize, col: usize, content: String) ->
+        Result<Token> {
+            if self.eof() {
+                return Err(err(ET::TrailingString, line, col));
+            } else {
+                self.advance(); // consume closing quote
+                return Ok(Token {
+                    ty: TT::String,
+                    line: line,
+                    col: col,
+                    lexeme: Some(content)
+                });
+            }
     }
 }
 

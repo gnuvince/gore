@@ -7,7 +7,10 @@ pub enum GoreErrorType {
     // Scanner errors
     UnrecognizedCharacter,
     TrailingBlockComment,
-    MalformedHexLiteral
+    MalformedHexLiteral,
+    TrailingString,
+    InvalidEscape,
+    NewlineInString
 }
 
 #[derive(Debug)]

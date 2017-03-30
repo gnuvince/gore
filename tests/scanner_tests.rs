@@ -453,3 +453,14 @@ fn test_no_semi_insertion() {
     assert_toks(&[TT::Semi], b";");
     assert_toks(&[TT::Colon], b":");
 }
+
+#[test]
+fn test_interpreted_string() {
+    assert_tok(TT::String, b"\"\"");
+    assert_tok(TT::String, b"\"hello\"");
+    assert_tok(TT::String, b"\" \\a \\b \\f \\n \\r \\t \\v \\\\ \\\" \"");
+
+    assert_err(ET::TrailingString, b"\"hello");
+    assert_err(ET::InvalidEscape, b"\"\\p\"");
+    assert_err(ET::NewlineInString, b" \" \n \" ");
+}
