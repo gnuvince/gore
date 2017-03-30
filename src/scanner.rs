@@ -89,7 +89,21 @@ impl Scanner {
 
         let tok = {
             if self.eof() {
-                Token { ty: TT::Eof, line: self.line, col: self.col, lexeme: None }
+                if self.needs_semicolon() {
+                    Token {
+                        ty: TT::Semi,
+                        line: self.line,
+                        col: self.col,
+                        lexeme: None
+                    }
+                } else {
+                    Token {
+                        ty: TT::Eof,
+                        line: self.line,
+                        col: self.col,
+                        lexeme: None
+                    }
+                }
             }
 
             // Operators and punctuation
