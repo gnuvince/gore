@@ -1,11 +1,9 @@
 use std::io;
 use std::io::Read;
 
-mod token;
-mod error;
-mod scanner;
+extern crate gore;
 
-use scanner::Scanner;
+use gore::scanner::Scanner;
 
 fn main() {
     let mut stdin = io::stdin();
