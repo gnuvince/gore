@@ -78,7 +78,14 @@ impl Scanner {
     }
 
     pub fn next(&mut self) -> Result<Token> {
-        let () = self.skip_whitespace_and_comments()?;
+        match self.skip_whitespace_and_comments() {
+            Ok(Some(tok)) => {
+                self.last_tok = tok.ty;
+                return Ok(tok);
+            }
+            Ok(None) => { }
+            Err(err) => { return Err(err); }
+        }
 
         let tok = {
             if self.eof() {
@@ -150,11 +157,13 @@ impl Scanner {
     }
 
     // TODO(vfoley): ugly and nasty, refactor.
-    fn skip_whitespace_and_comments(&mut self) -> Result<()> {
+    fn skip_whitespace_and_comments(&mut self) -> Result<Option<Token>> {
         loop {
             if is_whitespace(self.peek()) {
-                self.skip_whitespace();
-                continue;
+                match self.skip_whitespace() {
+                    None => { continue; }
+                    some_tok => { return Ok(some_tok); }
+                }
             }
 
             if self.looking_at(b"//") {
@@ -169,13 +178,44 @@ impl Scanner {
 
             break;
         }
-        return Ok(());
+        return Ok(None);
     }
 
-    fn skip_whitespace(&mut self) {
+    fn needs_semicolon(&self) -> bool {
+        match self.last_tok {
+            TT::Id
+            | TT::Blank
+            | TT::Int
+            | TT::IntHex
+            | TT::Float
+            | TT::Rune
+            | TT::String
+            | TT::Break
+            | TT::Continue
+            | TT::Return
+            | TT::Incr
+            | TT::Decr
+            | TT::RParen
+            | TT::RBracket
+            | TT::RBrace
+            | TT::Eof => true,
+            _ => false
+        }
+    }
+
+    fn skip_whitespace(&mut self) -> Option<Token> {
         while is_whitespace(self.peek()) {
+            if self.peek() == b'\n' && self.needs_semicolon() {
+                return Some(Token {
+                    ty: TT::Semi,
+                    line: self.line,
+                    col: self.col,
+                    lexeme: None
+                });
+            }
             self.advance();
         }
+        return None;
     }
 
     fn skip_line_comment(&mut self) {
@@ -339,6 +379,27 @@ mod test {
         let tok_opt = scanner.next();
         let tok_ty = tok_opt.map(|tok| tok.ty).unwrap_or(TT::Eof);
         assert_eq!(tok_ty, expected_ty);
+    }
+
+    fn assert_toks(expected_tys: &[TT], src: &[u8]) {
+        let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
+        let mut scanner = super::Scanner::new("-".to_string(), src_vec);
+        let mut toks = Vec::new();
+        loop {
+            match scanner.next() {
+                Ok(tok) => {
+                    if tok.ty == TT::Eof {
+                        break;
+                    }
+                    toks.push(tok.ty);
+                }
+                Err(_) => { assert_eq!("assert_toks", "got an error"); }
+            }
+        }
+        assert!(
+            expected_tys.len() == toks.len() &&
+                expected_tys.iter().zip(&toks).all(|(a, b)| *a == *b)
+        );
     }
 
     fn assert_lexeme(expected: &str, src: &[u8]) {
@@ -601,5 +662,116 @@ mod test {
 
         assert!(s.next().is_ok());
         assert_eq!(TT::Int, s.last_tok);
+    }
+
+    #[test]
+    fn test_semi_insertion() {
+        assert_toks(&[TT::Id, TT::Semi], b"x\n");
+        assert_toks(&[TT::Id, TT::Semi], b"x\n\n\n");
+        assert_toks(&[TT::Id, TT::Semi], b"x // comment\n");
+
+        assert_toks(&[TT::Blank, TT::Semi], b"_\n");
+        assert_toks(&[TT::Blank, TT::Semi], b"_\n\n\n");
+        assert_toks(&[TT::Blank, TT::Semi], b"_ // comment\n");
+
+        assert_toks(&[TT::Int, TT::Semi], b"42\n");
+        assert_toks(&[TT::Int, TT::Semi], b"42\n\n\n");
+        assert_toks(&[TT::Int, TT::Semi], b"42 // comment\n");
+
+        assert_toks(&[TT::IntHex, TT::Semi], b"0x1f\n");
+        assert_toks(&[TT::IntHex, TT::Semi], b"0x1f\n\n\n");
+        assert_toks(&[TT::IntHex, TT::Semi], b"0x1f // comment\n");
+
+        assert_toks(&[TT::Float, TT::Semi], b"3.14\n");
+        assert_toks(&[TT::Float, TT::Semi], b"3.14\n\n\n");
+        assert_toks(&[TT::Float, TT::Semi], b"3.14 // comment\n");
+
+        assert_toks(&[TT::Break, TT::Semi], b"break\n");
+        assert_toks(&[TT::Break, TT::Semi], b"break\n\n\n");
+        assert_toks(&[TT::Break, TT::Semi], b"break // comment\n");
+
+        assert_toks(&[TT::Continue, TT::Semi], b"continue\n");
+        assert_toks(&[TT::Continue, TT::Semi], b"continue\n\n\n");
+        assert_toks(&[TT::Continue, TT::Semi], b"continue // comment\n");
+
+        assert_toks(&[TT::Return, TT::Semi], b"return\n");
+        assert_toks(&[TT::Return, TT::Semi], b"return\n\n\n");
+        assert_toks(&[TT::Return, TT::Semi], b"return // comment\n");
+
+        assert_toks(&[TT::Incr, TT::Semi], b"++\n");
+        assert_toks(&[TT::Incr, TT::Semi], b"++\n\n\n");
+        assert_toks(&[TT::Incr, TT::Semi], b"++ // comment\n");
+
+        assert_toks(&[TT::Decr, TT::Semi], b"--\n");
+        assert_toks(&[TT::Decr, TT::Semi], b"--\n\n\n");
+        assert_toks(&[TT::Decr, TT::Semi], b"-- // comment\n");
+
+        assert_toks(&[TT::RParen, TT::Semi], b")\n");
+        assert_toks(&[TT::RParen, TT::Semi], b")\n\n\n");
+        assert_toks(&[TT::RParen, TT::Semi], b") // comment\n");
+
+        assert_toks(&[TT::RBracket, TT::Semi], b"]\n");
+        assert_toks(&[TT::RBracket, TT::Semi], b"]\n\n\n");
+        assert_toks(&[TT::RBracket, TT::Semi], b"] // comment\n");
+
+        assert_toks(&[TT::RBrace, TT::Semi], b"}\n");
+        assert_toks(&[TT::RBrace, TT::Semi], b"}\n\n\n");
+        assert_toks(&[TT::RBrace, TT::Semi], b"} // comment\n");
+    }
+
+    #[test]
+    fn test_no_semi_insertion() {
+        assert_toks(&[TT::Case], b"case\n");
+        assert_toks(&[TT::Default], b"default\n");
+        assert_toks(&[TT::Else], b"else\n");
+        assert_toks(&[TT::For], b"for\n");
+        assert_toks(&[TT::Func], b"func\n");
+        assert_toks(&[TT::If], b"if\n");
+        assert_toks(&[TT::Package], b"package\n");
+        assert_toks(&[TT::Struct], b"struct\n");
+        assert_toks(&[TT::Switch], b"switch\n");
+        assert_toks(&[TT::Type], b"type\n");
+        assert_toks(&[TT::Var], b"var\n");
+        assert_toks(&[TT::Append], b"append\n");
+        assert_toks(&[TT::Print], b"print\n");
+        assert_toks(&[TT::Println], b"println\n");
+
+
+        assert_toks(&[TT::Plus], b"+\n");
+        assert_toks(&[TT::Minus], b"-\n");
+        assert_toks(&[TT::Star], b"*\n");
+        assert_toks(&[TT::Slash], b"/\n");
+        assert_toks(&[TT::Percent], b"%\n");
+        assert_toks(&[TT::PlusEq], b"+=\n");
+        assert_toks(&[TT::MinusEq], b"-=\n");
+        assert_toks(&[TT::StarEq], b"*=\n");
+        assert_toks(&[TT::SlashEq], b"/=\n");
+        assert_toks(&[TT::PercentEq], b"%=\n");
+        assert_toks(&[TT::Bitand], b"&\n");
+        assert_toks(&[TT::Bitor], b"|\n");
+        assert_toks(&[TT::Bitnot], b"^\n");
+        assert_toks(&[TT::BitandEq], b"&=\n");
+        assert_toks(&[TT::BitorEq], b"|=\n");
+        assert_toks(&[TT::LeftShift], b"<<\n");
+        assert_toks(&[TT::RightShift], b">>\n");
+        assert_toks(&[TT::LeftShiftEq], b"<<=\n");
+        assert_toks(&[TT::RightShiftEq], b">>=\n");
+        assert_toks(&[TT::BitClear], b"&^\n");
+        assert_toks(&[TT::And], b"&&\n");
+        assert_toks(&[TT::Or], b"||\n");
+        assert_toks(&[TT::Not], b"!\n");
+        assert_toks(&[TT::Eq], b"==\n");
+        assert_toks(&[TT::Ne], b"!=\n");
+        assert_toks(&[TT::Lt], b"<\n");
+        assert_toks(&[TT::Le], b"<=\n");
+        assert_toks(&[TT::Gt], b">\n");
+        assert_toks(&[TT::Ge], b">=\n");
+        assert_toks(&[TT::LParen], b"(\n");
+        assert_toks(&[TT::LBracket], b"[\n");
+        assert_toks(&[TT::LBrace], b"{\n");
+        assert_toks(&[TT::Comma], b",\n");
+        assert_toks(&[TT::Dot], b".\n");
+        assert_toks(&[TT::Semi], b";\n");
+        assert_toks(&[TT::Colon], b":\n");
     }
 }

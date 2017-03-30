@@ -77,7 +77,7 @@ impl fmt::Display for TokenType {
             PercentEq => "%=",
             Bitand => "&",
             Bitor => "|",
-            Bitnot => "!",
+            Bitnot => "^",
             BitandEq => "&=",
             BitorEq => "|=",
             LeftShift => "<<",
