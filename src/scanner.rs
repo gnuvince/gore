@@ -51,14 +51,13 @@ impl Scanner {
 
     fn advance(&mut self) {
         // unix-only newlines for now
-        let is_newline = self.peek() == b'\n';
-        self.pos += 1;
-        if is_newline {
+        if self.peek() == b'\n' {
             self.line += 1;
             self.col = 1;
         } else {
             self.col += 1;
         }
+        self.pos += 1;
     }
 
     fn eat(&mut self, n: usize, ty: TT) -> Token {
@@ -186,8 +185,11 @@ impl Scanner {
             }
 
             if self.looking_at(b"/*") {
-                let () = self.skip_block_comment()?;
-                continue;
+                match self.skip_block_comment() {
+                    Ok(None) => { continue; }
+                    Ok(some_tok) => { return Ok(some_tok); }
+                    Err(err) => { return Err(err); }
+                }
             }
 
             break;
@@ -241,12 +243,16 @@ impl Scanner {
         }
     }
 
-    fn skip_block_comment(&mut self) -> Result<()> {
+    fn skip_block_comment(&mut self) -> Result<Option<Token>> {
         // self.pos is still pointing at "/*"
         let (line, col) = self.pos();
+        let mut has_newline = false;
         self.advance();
         self.advance();
         while !self.eof() && !self.looking_at(b"*/") {
+            if self.peek() == b'\n' {
+                has_newline = true;
+            }
             self.advance();
         }
         if self.eof() {
@@ -255,7 +261,16 @@ impl Scanner {
             // skip over "*/"
             self.advance();
             self.advance();
-            return Ok(());
+            if has_newline && self.needs_semicolon() {
+                return Ok(Some(Token {
+                    ty: TT::Semi,
+                    line: line,
+                    col: col,
+                    lexeme: None
+                }));
+            } else {
+                return Ok(None);
+            }
         }
     }
 
