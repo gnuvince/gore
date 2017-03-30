@@ -9,8 +9,11 @@ pub enum GoreErrorType {
     TrailingBlockComment,
     MalformedHexLiteral,
     TrailingString,
+    TrailingRune,
     InvalidEscape,
-    NewlineInString
+    NewlineInString,
+    NewlineInRune,
+    EmptyRune,
 }
 
 #[derive(Debug)]
@@ -20,8 +23,18 @@ pub struct GoreError {
     pub col: usize
 }
 
+impl GoreError {
+    pub fn new(ty: GoreErrorType, line: usize,
+               col: usize) -> GoreError {
+        GoreError {
+            ty: ty, line: line, col: col
+        }
+    }
+}
+
 pub type Result<T> = result::Result<T, GoreError>;
 
-pub fn err(ty: GoreErrorType, line: usize, col: usize) -> GoreError {
-    GoreError { ty: ty, line: line, col: col }
+pub fn err<T>(ty: GoreErrorType, line: usize,
+              col: usize) -> Result<T> {
+    Err(GoreError::new(ty, line, col))
 }

@@ -61,7 +61,7 @@ impl Scanner {
     }
 
     fn eat(&mut self, n: usize, ty: TT) -> Token {
-        let t = Token { ty: ty, line: self.line, col: self.col, lexeme: None };
+        let t = Token::new(ty, self.line, self.col, None);
         for _ in 0 .. n {
             self.advance();
         }
@@ -89,19 +89,9 @@ impl Scanner {
         let tok = {
             if self.eof() {
                 if self.needs_semicolon() {
-                    Token {
-                        ty: TT::Semi,
-                        line: self.line,
-                        col: self.col,
-                        lexeme: None
-                    }
+                    Token::new(TT::Semi, self.line, self.col, None)
                 } else {
-                    Token {
-                        ty: TT::Eof,
-                        line: self.line,
-                        col: self.col,
-                        lexeme: None
-                    }
+                    Token::new(TT::Eof, self.line, self.col, None)
                 }
             }
 
@@ -168,8 +158,11 @@ impl Scanner {
             else if self.peek() == b'`' {
                 self.raw_string()?
             }
+            else if self.peek() == b'\'' {
+                self.rune()?
+            }
             else {
-                return Err(err(ET::UnrecognizedCharacter, self.line, self.col));
+                return err(ET::UnrecognizedCharacter, self.line, self.col);
             }
         };
         self.last_tok = tok.ty;
@@ -234,12 +227,7 @@ impl Scanner {
     fn skip_whitespace(&mut self) -> Option<Token> {
         while is_whitespace(self.peek()) {
             if self.peek() == b'\n' && self.needs_semicolon() {
-                return Some(Token {
-                    ty: TT::Semi,
-                    line: self.line,
-                    col: self.col,
-                    lexeme: None
-                });
+                return Some(Token::new(TT::Semi, self.line, self.col, None));
             }
             self.advance();
         }
@@ -268,18 +256,13 @@ impl Scanner {
             self.advance();
         }
         if self.eof() {
-            return Err(err(ET::TrailingBlockComment, line, col));
+            return err(ET::TrailingBlockComment, line, col);
         } else {
             // skip over "*/"
             self.advance();
             self.advance();
             if has_newline && self.needs_semicolon() {
-                return Ok(Some(Token {
-                    ty: TT::Semi,
-                    line: line,
-                    col: col,
-                    lexeme: None
-                }));
+                return Ok(Some(Token::new(TT::Semi, line, col, None)));
             } else {
                 return Ok(None);
             }
@@ -315,7 +298,7 @@ impl Scanner {
             else if name == "println" { (TT::Println, None) }
             else { (TT::Id, Some(name)) }
         };
-        return Token {ty: ty, line: line, col: col, lexeme: lexeme};
+        return Token::new(ty, line, col, lexeme);
     }
 
     fn number(&mut self) -> Result<Token> {
@@ -337,14 +320,9 @@ impl Scanner {
             self.advance();
         }
         if digits.is_empty() {
-            return Err(err(ET::MalformedHexLiteral, line, col));
+            return err(ET::MalformedHexLiteral, line, col);
         } else {
-            return Ok(Token {
-                ty: TT::IntHex,
-                line: line,
-                col: col,
-                lexeme: Some(digits)
-            });
+            return Ok(Token::new(TT::IntHex, line, col, Some(digits)));
         }
     }
 
@@ -362,12 +340,7 @@ impl Scanner {
             self.advance();
             return self.float_literal(line, col, digits);
         } else {
-            return Ok(Token {
-                ty: TT::Int,
-                line: line,
-                col: col,
-                lexeme: Some(digits)
-            });
+            return Ok(Token::new(TT::Int, line, col, Some(digits)));
         }
     }
 
@@ -377,12 +350,7 @@ impl Scanner {
                 digits.push(self.peek() as char);
                 self.advance();
             }
-            return Ok(Token {
-                ty: TT::Float,
-                line: line,
-                col: col,
-                lexeme: Some(digits)
-            });
+            return Ok(Token::new(TT::Float, line, col, Some(digits)));
     }
 
     fn interpreted_string(&mut self) -> Result<Token> {
@@ -392,7 +360,7 @@ impl Scanner {
         self.advance(); // consume opening double-quote
         while self.peek() != b'"' {
             if self.eof() {
-                return Err(err(ET::TrailingString, line, col));
+                return err(ET::TrailingString, line, col);
             }
 
             if self.peek() == b'\\' {
@@ -407,12 +375,12 @@ impl Scanner {
                     b'v' => { 0x0b }
                     b'\\' => { 0x5c }
                     b'"' => { 0x22 }
-                    _ => { return Err(err(ET::InvalidEscape, self.line, self.col)); }
+                    _ => { return err(ET::InvalidEscape, self.line, self.col); }
                 };
                 content.push(code as char);
                 self.advance();
             } else if self.peek() == b'\n' {
-                return Err(err(ET::NewlineInString, self.line, self.col));
+                return err(ET::NewlineInString, self.line, self.col);
             } else {
                 content.push(self.peek() as char);
                 self.advance();
@@ -420,12 +388,7 @@ impl Scanner {
         }
         self.advance();
 
-        return Ok(Token {
-            ty: TT::String,
-            line: line,
-            col: col,
-            lexeme: Some(content)
-        });
+        return Ok(Token::new(TT::String, line, col, Some(content)));
     }
 
     fn raw_string(&mut self) -> Result<Token> {
@@ -435,7 +398,7 @@ impl Scanner {
         self.advance(); // consume opening back-quote
         while self.peek() != b'`' {
             if self.eof() {
-                return Err(err(ET::TrailingString, line, col));
+                return err(ET::TrailingString, line, col);
             }
             // Carriage returns are discarded in raw strings
             if self.looking_at(b"\\r") {
@@ -448,27 +411,45 @@ impl Scanner {
         }
         self.advance();
 
-        return Ok(Token {
-            ty: TT::String,
-            line: line,
-            col: col,
-            lexeme: Some(content)
-        });
+        return Ok(Token::new(TT::String, line, col, Some(content)));
     }
 
-    fn make_string(&mut self, line: usize, col: usize, content: String) ->
-        Result<Token> {
-            if self.eof() {
-                return Err(err(ET::TrailingString, line, col));
-            } else {
-                self.advance(); // consume closing quote
-                return Ok(Token {
-                    ty: TT::String,
-                    line: line,
-                    col: col,
-                    lexeme: Some(content)
-                });
-            }
+    fn rune(&mut self) -> Result<Token> {
+        let (line, col) = self.pos();
+        let mut content = String::new();
+
+        self.advance(); // opening single-quote
+        if self.peek() == b'\\' {
+            self.advance();
+            let code: u8 = match self.peek() {
+                b'a' => { 0x07 }
+                b'b' => { 0x08 }
+                b'f' => { 0x0c }
+                b'n' => { 0x0a }
+                b'r' => { 0x0d }
+                b't' => { 0x09 }
+                b'v' => { 0x0b }
+                b'\\' => { 0x5c }
+                b'\'' => { 0x27 }
+                _ => { return err(ET::InvalidEscape, self.line, self.col); }
+            };
+            content.push(code as char);
+            self.advance();
+        } else if self.peek() == b'\n' {
+            return err(ET::NewlineInRune, self.line, self.col);
+        } else if self.peek() == b'\'' {
+            return err(ET::EmptyRune, line, col);
+        } else {
+            content.push(self.peek() as char);
+            self.advance();
+        }
+
+        if self.peek() == b'\'' {
+            self.advance();
+            return Ok(Token::new(TT::Rune, line, col, Some(content)));
+        } else {
+            return err(ET::TrailingRune, line, col);
+        }
     }
 }
 

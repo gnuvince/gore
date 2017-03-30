@@ -122,20 +122,14 @@ pub struct Token {
 }
 
 
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "<< {} ({}, {}) {} >>",
-               self.ty, self.line, self.col,
-               match self.lexeme {
-                   None => "",
-                   Some(ref s) => s
-               }
-        )
-    }
-}
-
-
 impl Token {
+    pub fn new(ty: TokenType, line: usize,
+               col: usize, lexeme: Option<String>) -> Token {
+        Token {
+            ty: ty, line: line, col: col, lexeme: lexeme
+        }
+    }
+
     pub fn is_eof(&self) -> bool {
         self.ty == TokenType::Eof
     }
