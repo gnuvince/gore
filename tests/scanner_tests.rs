@@ -464,3 +464,33 @@ fn test_interpreted_string() {
     assert_err(ET::InvalidEscape, b"\"\\p\"");
     assert_err(ET::NewlineInString, b" \" \n \" ");
 }
+
+#[test]
+fn test_raw_string() {
+    assert_tok(TT::String, b"``");
+    assert_tok(TT::String, b"`hello`");
+    assert_tok(TT::String, b"`hello\nworld`");
+
+    assert_err(ET::TrailingString, b"`hello");
+}
+
+#[test]
+fn test_rune() {
+    assert_tok(TT::Rune, b"'a'");
+    assert_tok(TT::Rune, b"'\\a'");
+    assert_tok(TT::Rune, b"'\\b'");
+    assert_tok(TT::Rune, b"'\\f'");
+    assert_tok(TT::Rune, b"'\\n'");
+    assert_tok(TT::Rune, b"'\\r'");
+    assert_tok(TT::Rune, b"'\\t'");
+    assert_tok(TT::Rune, b"'\\v'");
+    assert_tok(TT::Rune, b"'\\\\'");
+    assert_tok(TT::Rune, b"'\\''");
+
+    assert_err(ET::EmptyRune, b"''");
+    assert_err(ET::NewlineInRune, b"'\n'");
+    assert_err(ET::TrailingRune, b"'");
+    assert_err(ET::TrailingRune, b"'x");
+    assert_err(ET::InvalidEscape, b"'\\p'");
+    assert_err(ET::TrailingRune, b"'xx'");
+}
