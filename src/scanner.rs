@@ -681,7 +681,7 @@ mod test {
 
     #[test]
     fn test_last_tok() {
-        let input = From::from(&(b"x += -4")[..]);
+        let input = b"x += -4".to_vec();
         let mut s = Scanner::new("-".to_string(), input);
         assert_eq!(TT::None, s.last_tok);
 
@@ -700,54 +700,68 @@ mod test {
 
     #[test]
     fn test_semi_insertion() {
+
+        assert_toks(&[TT::Id, TT::Semi], b"x");
         assert_toks(&[TT::Id, TT::Semi], b"x\n");
         assert_toks(&[TT::Id, TT::Semi], b"x\n\n\n");
         assert_toks(&[TT::Id, TT::Semi], b"x // comment\n");
 
+        assert_toks(&[TT::Blank, TT::Semi], b"_");
         assert_toks(&[TT::Blank, TT::Semi], b"_\n");
         assert_toks(&[TT::Blank, TT::Semi], b"_\n\n\n");
         assert_toks(&[TT::Blank, TT::Semi], b"_ // comment\n");
 
+        assert_toks(&[TT::Int, TT::Semi], b"42");
         assert_toks(&[TT::Int, TT::Semi], b"42\n");
         assert_toks(&[TT::Int, TT::Semi], b"42\n\n\n");
         assert_toks(&[TT::Int, TT::Semi], b"42 // comment\n");
 
+        assert_toks(&[TT::IntHex, TT::Semi], b"0x1f");
         assert_toks(&[TT::IntHex, TT::Semi], b"0x1f\n");
         assert_toks(&[TT::IntHex, TT::Semi], b"0x1f\n\n\n");
         assert_toks(&[TT::IntHex, TT::Semi], b"0x1f // comment\n");
 
+        assert_toks(&[TT::Float, TT::Semi], b"3.14");
         assert_toks(&[TT::Float, TT::Semi], b"3.14\n");
         assert_toks(&[TT::Float, TT::Semi], b"3.14\n\n\n");
         assert_toks(&[TT::Float, TT::Semi], b"3.14 // comment\n");
 
+        assert_toks(&[TT::Break, TT::Semi], b"break");
         assert_toks(&[TT::Break, TT::Semi], b"break\n");
         assert_toks(&[TT::Break, TT::Semi], b"break\n\n\n");
         assert_toks(&[TT::Break, TT::Semi], b"break // comment\n");
 
+        assert_toks(&[TT::Continue, TT::Semi], b"continue");
         assert_toks(&[TT::Continue, TT::Semi], b"continue\n");
         assert_toks(&[TT::Continue, TT::Semi], b"continue\n\n\n");
         assert_toks(&[TT::Continue, TT::Semi], b"continue // comment\n");
 
+        assert_toks(&[TT::Return, TT::Semi], b"return");
         assert_toks(&[TT::Return, TT::Semi], b"return\n");
         assert_toks(&[TT::Return, TT::Semi], b"return\n\n\n");
         assert_toks(&[TT::Return, TT::Semi], b"return // comment\n");
 
+        assert_toks(&[TT::Incr, TT::Semi], b"++");
         assert_toks(&[TT::Incr, TT::Semi], b"++\n");
         assert_toks(&[TT::Incr, TT::Semi], b"++\n\n\n");
         assert_toks(&[TT::Incr, TT::Semi], b"++ // comment\n");
 
+        assert_toks(&[TT::Decr, TT::Semi], b"--");
         assert_toks(&[TT::Decr, TT::Semi], b"--\n");
         assert_toks(&[TT::Decr, TT::Semi], b"--\n\n\n");
         assert_toks(&[TT::Decr, TT::Semi], b"-- // comment\n");
 
+        assert_toks(&[TT::RParen, TT::Semi], b")");
         assert_toks(&[TT::RParen, TT::Semi], b")\n");
         assert_toks(&[TT::RParen, TT::Semi], b")\n\n\n");
         assert_toks(&[TT::RParen, TT::Semi], b") // comment\n");
 
+        assert_toks(&[TT::RBracket, TT::Semi], b"]");
         assert_toks(&[TT::RBracket, TT::Semi], b"]\n");
         assert_toks(&[TT::RBracket, TT::Semi], b"]\n\n\n");
         assert_toks(&[TT::RBracket, TT::Semi], b"] // comment\n");
 
+        assert_toks(&[TT::RBrace, TT::Semi], b"}");
         assert_toks(&[TT::RBrace, TT::Semi], b"}\n");
         assert_toks(&[TT::RBrace, TT::Semi], b"}\n\n\n");
         assert_toks(&[TT::RBrace, TT::Semi], b"} // comment\n");
@@ -769,6 +783,21 @@ mod test {
         assert_toks(&[TT::Append], b"append\n");
         assert_toks(&[TT::Print], b"print\n");
         assert_toks(&[TT::Println], b"println\n");
+
+        assert_toks(&[TT::Case], b"case");
+        assert_toks(&[TT::Default], b"default");
+        assert_toks(&[TT::Else], b"else");
+        assert_toks(&[TT::For], b"for");
+        assert_toks(&[TT::Func], b"func");
+        assert_toks(&[TT::If], b"if");
+        assert_toks(&[TT::Package], b"package");
+        assert_toks(&[TT::Struct], b"struct");
+        assert_toks(&[TT::Switch], b"switch");
+        assert_toks(&[TT::Type], b"type");
+        assert_toks(&[TT::Var], b"var");
+        assert_toks(&[TT::Append], b"append");
+        assert_toks(&[TT::Print], b"print");
+        assert_toks(&[TT::Println], b"println");
 
 
         assert_toks(&[TT::Plus], b"+\n");
@@ -807,5 +836,42 @@ mod test {
         assert_toks(&[TT::Dot], b".\n");
         assert_toks(&[TT::Semi], b";\n");
         assert_toks(&[TT::Colon], b":\n");
+
+        assert_toks(&[TT::Plus], b"+");
+        assert_toks(&[TT::Minus], b"-");
+        assert_toks(&[TT::Star], b"*");
+        assert_toks(&[TT::Slash], b"/");
+        assert_toks(&[TT::Percent], b"%");
+        assert_toks(&[TT::PlusEq], b"+=");
+        assert_toks(&[TT::MinusEq], b"-=");
+        assert_toks(&[TT::StarEq], b"*=");
+        assert_toks(&[TT::SlashEq], b"/=");
+        assert_toks(&[TT::PercentEq], b"%=");
+        assert_toks(&[TT::Bitand], b"&");
+        assert_toks(&[TT::Bitor], b"|");
+        assert_toks(&[TT::Bitnot], b"^");
+        assert_toks(&[TT::BitandEq], b"&=");
+        assert_toks(&[TT::BitorEq], b"|=");
+        assert_toks(&[TT::LeftShift], b"<<");
+        assert_toks(&[TT::RightShift], b">>");
+        assert_toks(&[TT::LeftShiftEq], b"<<=");
+        assert_toks(&[TT::RightShiftEq], b">>=");
+        assert_toks(&[TT::BitClear], b"&^");
+        assert_toks(&[TT::And], b"&&");
+        assert_toks(&[TT::Or], b"||");
+        assert_toks(&[TT::Not], b"!");
+        assert_toks(&[TT::Eq], b"==");
+        assert_toks(&[TT::Ne], b"!=");
+        assert_toks(&[TT::Lt], b"<");
+        assert_toks(&[TT::Le], b"<=");
+        assert_toks(&[TT::Gt], b">");
+        assert_toks(&[TT::Ge], b">=");
+        assert_toks(&[TT::LParen], b"(");
+        assert_toks(&[TT::LBracket], b"[");
+        assert_toks(&[TT::LBrace], b"{");
+        assert_toks(&[TT::Comma], b",");
+        assert_toks(&[TT::Dot], b".");
+        assert_toks(&[TT::Semi], b";");
+        assert_toks(&[TT::Colon], b":");
     }
 }
