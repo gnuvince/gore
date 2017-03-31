@@ -471,6 +471,8 @@ fn test_raw_string() {
     assert_tok(TT::String, b"`hello`");
     assert_tok(TT::String, b"`hello\nworld`");
 
+    assert_lexeme("", b"`\\r`");
+
     assert_err(ET::TrailingString, b"`hello");
 }
 
