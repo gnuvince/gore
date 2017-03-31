@@ -1,3 +1,4 @@
+use loc::Loc;
 use std::error;
 use std::fmt;
 use std::result;
@@ -52,14 +53,12 @@ impl error::Error for GoreErrorType {
 #[derive(Debug)]
 pub struct GoreError {
     pub ty: GoreErrorType,
-    pub file: String,
-    pub line: usize,
-    pub col: usize
+    pub loc: Loc
 }
 
 impl fmt::Display for GoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}:{}: {}", self.file, self.line, self.col, self.ty)
+        write!(f, "{}: {}", self.loc, self.ty)
     }
 }
 
@@ -70,17 +69,15 @@ impl error::Error for GoreError {
 }
 
 impl GoreError {
-    pub fn new(ty: GoreErrorType, file: String,
-               line: usize, col: usize) -> GoreError {
+    pub fn new(ty: GoreErrorType, loc: Loc) -> GoreError {
         GoreError {
-            ty: ty, file: file, line: line, col: col
+            ty: ty, loc: loc
         }
     }
 }
 
 pub type Result<T> = result::Result<T, GoreError>;
 
-pub fn err<T>(ty: GoreErrorType, file: String,
-              line: usize, col: usize) -> Result<T> {
-    Err(GoreError::new(ty, file, line, col))
+pub fn err<T>(ty: GoreErrorType, loc: Loc) -> Result<T> {
+    Err(GoreError::new(ty, loc))
 }

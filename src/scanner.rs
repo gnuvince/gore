@@ -1,3 +1,4 @@
+use loc::Loc;
 use error::{Result, err};
 use error::GoreErrorType as ET;
 use token::Token;
@@ -61,7 +62,7 @@ impl Scanner {
     }
 
     fn eat(&mut self, n: usize, ty: TT) -> Token {
-        let t = Token::new(ty, self.line, self.col, None);
+        let t = Token::new(ty, self.loc(), None);
         for _ in 0 .. n {
             self.advance();
         }
@@ -72,8 +73,8 @@ impl Scanner {
         self.peek() == 0
     }
 
-    fn pos(&self) -> (usize, usize) {
-        (self.line, self.col)
+    fn loc(&self) -> Loc {
+        Loc::new(&self.filename, self.line, self.col)
     }
 
     pub fn next(&mut self) -> Result<Token> {
@@ -89,9 +90,9 @@ impl Scanner {
         let tok = {
             if self.eof() {
                 if self.needs_semicolon() {
-                    Token::new(TT::Semi, self.line, self.col, None)
+                    Token::new(TT::Semi, self.loc(), None)
                 } else {
-                    Token::new(TT::Eof, self.line, self.col, None)
+                    Token::new(TT::Eof, self.loc(), None)
                 }
             }
 
@@ -162,7 +163,7 @@ impl Scanner {
                 self.rune()?
             }
             else {
-                return err(ET::UnrecognizedCharacter, self.filename.clone(), self.line, self.col);
+                return err(ET::UnrecognizedCharacter, self.loc());
             }
         };
         self.last_tok = tok.ty;
@@ -227,7 +228,7 @@ impl Scanner {
     fn skip_whitespace(&mut self) -> Option<Token> {
         while is_whitespace(self.peek()) {
             if self.peek() == b'\n' && self.needs_semicolon() {
-                return Some(Token::new(TT::Semi, self.line, self.col, None));
+                return Some(Token::new(TT::Semi, self.loc(), None));
             }
             self.advance();
         }
@@ -245,7 +246,7 @@ impl Scanner {
 
     fn skip_block_comment(&mut self) -> Result<Option<Token>> {
         // self.pos is still pointing at "/*"
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut has_newline = false;
         self.advance();
         self.advance();
@@ -256,13 +257,13 @@ impl Scanner {
             self.advance();
         }
         if self.eof() {
-            return err(ET::TrailingBlockComment, self.filename.clone(), line, col);
+            return err(ET::TrailingBlockComment, start_loc);
         } else {
             // skip over "*/"
             self.advance();
             self.advance();
             if has_newline && self.needs_semicolon() {
-                return Ok(Some(Token::new(TT::Semi, line, col, None)));
+                return Ok(Some(Token::new(TT::Semi, start_loc, None)));
             } else {
                 return Ok(None);
             }
@@ -270,7 +271,7 @@ impl Scanner {
     }
 
     fn id_or_keyword(&mut self) -> Token {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut name = String::new();
         while is_alnum(self.peek()) {
             name.push(self.peek() as char);
@@ -298,7 +299,7 @@ impl Scanner {
             else if name == "println" { (TT::Println, None) }
             else { (TT::Id, Some(name)) }
         };
-        return Token::new(ty, line, col, lexeme);
+        return Token::new(ty, start_loc, lexeme);
     }
 
     fn number(&mut self) -> Result<Token> {
@@ -310,7 +311,7 @@ impl Scanner {
     }
 
     fn hex(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut digits = String::new();
         // skip over "0x" or "0X"
         self.advance();
@@ -320,14 +321,14 @@ impl Scanner {
             self.advance();
         }
         if digits.is_empty() {
-            return err(ET::MalformedHexLiteral, self.filename.clone(), line, col);
+            return err(ET::MalformedHexLiteral, start_loc);
         } else {
-            return Ok(Token::new(TT::IntHex, line, col, Some(digits)));
+            return Ok(Token::new(TT::IntHex, start_loc, Some(digits)));
         }
     }
 
     fn decimal_or_octal(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut digits = String::new();
 
         while is_digit(self.peek()) {
@@ -338,29 +339,29 @@ impl Scanner {
         if self.peek() == b'.' {
             digits.push('.');
             self.advance();
-            return self.float_literal(line, col, digits);
+            return self.float_literal(start_loc, digits);
         } else {
-            return Ok(Token::new(TT::Int, line, col, Some(digits)));
+            return Ok(Token::new(TT::Int, start_loc, Some(digits)));
         }
     }
 
-    fn float_literal(&mut self, line: usize, col: usize, mut digits: String) ->
+    fn float_literal(&mut self, loc: Loc, mut digits: String) ->
         Result<Token> {
             while is_digit(self.peek()) {
                 digits.push(self.peek() as char);
                 self.advance();
             }
-            return Ok(Token::new(TT::Float, line, col, Some(digits)));
+            return Ok(Token::new(TT::Float, loc, Some(digits)));
     }
 
     fn interpreted_string(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut content = String::new();
 
         self.advance(); // consume opening double-quote
         while self.peek() != b'"' {
             if self.eof() {
-                return err(ET::TrailingString, self.filename.clone(), line, col);
+                return err(ET::TrailingString, start_loc);
             }
 
             if self.peek() == b'\\' {
@@ -375,13 +376,12 @@ impl Scanner {
                     b'v' => { 0x0b }
                     b'\\' => { 0x5c }
                     b'"' => { 0x22 }
-                    _ => { return err(ET::InvalidEscape, self.filename.clone(),
-                                      self.line, self.col); }
+                    _ => { return err(ET::InvalidEscape, self.loc()); }
                 };
                 content.push(code as char);
                 self.advance();
             } else if self.peek() == b'\n' {
-                return err(ET::NewlineInString, self.filename.clone(), self.line, self.col);
+                return err(ET::NewlineInString, self.loc());
             } else {
                 content.push(self.peek() as char);
                 self.advance();
@@ -389,17 +389,17 @@ impl Scanner {
         }
         self.advance();
 
-        return Ok(Token::new(TT::String, line, col, Some(content)));
+        return Ok(Token::new(TT::String, start_loc, Some(content)));
     }
 
     fn raw_string(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut content = String::new();
 
         self.advance(); // consume opening back-quote
         while self.peek() != b'`' {
             if self.eof() {
-                return err(ET::TrailingString, self.filename.clone(), line, col);
+                return err(ET::TrailingString, start_loc);
             }
             // Carriage returns are discarded in raw strings
             if self.looking_at(b"\\r") {
@@ -412,11 +412,11 @@ impl Scanner {
         }
         self.advance();
 
-        return Ok(Token::new(TT::String, line, col, Some(content)));
+        return Ok(Token::new(TT::String, start_loc, Some(content)));
     }
 
     fn rune(&mut self) -> Result<Token> {
-        let (line, col) = self.pos();
+        let start_loc = self.loc();
         let mut content = String::new();
 
         self.advance(); // opening single-quote
@@ -432,15 +432,14 @@ impl Scanner {
                 b'v' => { 0x0b }
                 b'\\' => { 0x5c }
                 b'\'' => { 0x27 }
-                _ => { return err(ET::InvalidEscape, self.filename.clone(),
-                                  self.line, self.col); }
+                _ => { return err(ET::InvalidEscape, self.loc()); }
             };
             content.push(code as char);
             self.advance();
         } else if self.peek() == b'\n' {
-            return err(ET::NewlineInRune, self.filename.clone(), self.line, self.col);
+            return err(ET::NewlineInRune, self.loc());
         } else if self.peek() == b'\'' {
-            return err(ET::EmptyRune, self.filename.clone(), line, col);
+            return err(ET::EmptyRune, start_loc);
         } else {
             content.push(self.peek() as char);
             self.advance();
@@ -448,9 +447,9 @@ impl Scanner {
 
         if self.peek() == b'\'' {
             self.advance();
-            return Ok(Token::new(TT::Rune, line, col, Some(content)));
+            return Ok(Token::new(TT::Rune, start_loc, Some(content)));
         } else {
-            return err(ET::TrailingRune, self.filename.clone(), line, col);
+            return err(ET::TrailingRune, start_loc);
         }
     }
 }

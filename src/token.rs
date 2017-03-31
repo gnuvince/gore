@@ -1,5 +1,7 @@
 use std::fmt;
 
+use loc::Loc;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenType {
     // Special tokens
@@ -116,17 +118,15 @@ impl fmt::Display for TokenType {
 #[derive(Debug)]
 pub struct Token {
     pub ty: TokenType,
-    pub line: usize,
-    pub col: usize,
+    pub loc: Loc,
     pub lexeme: Option<String>
 }
 
 
 impl Token {
-    pub fn new(ty: TokenType, line: usize,
-               col: usize, lexeme: Option<String>) -> Token {
+    pub fn new(ty: TokenType, loc: Loc, lexeme: Option<String>) -> Token {
         Token {
-            ty: ty, line: line, col: col, lexeme: lexeme
+            ty: ty, loc: loc, lexeme: lexeme
         }
     }
 
