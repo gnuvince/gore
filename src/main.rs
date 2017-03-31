@@ -10,16 +10,19 @@ fn main() {
     let mut bytes = Vec::new();
     let _ = stdin.read_to_end(&mut bytes);
     let mut scanner = Scanner::new("-".to_string(), bytes);
+    scan(&mut scanner);
+}
 
+
+fn scan(scanner: &mut Scanner) {
     loop {
         match scanner.next() {
             Ok(tok) => {
-                println!("{:?}", tok);
                 if tok.is_eof() { break; }
             }
             Err(err) => {
-                println!("error: {:?}", err);
-                break;
+                println!("{}", err);
+                return;
             }
         }
     }
