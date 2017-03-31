@@ -9,7 +9,7 @@ fn main() {
     let mut stdin = io::stdin();
     let mut bytes = Vec::new();
     let _ = stdin.read_to_end(&mut bytes);
-    let mut scanner = Scanner::new("-".to_string(), bytes);
+    let mut scanner = Scanner::new("<stdin>".to_string(), bytes);
     scan(&mut scanner);
 }
 

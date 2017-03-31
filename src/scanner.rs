@@ -162,7 +162,7 @@ impl Scanner {
                 self.rune()?
             }
             else {
-                return err(ET::UnrecognizedCharacter, self.line, self.col);
+                return err(ET::UnrecognizedCharacter, self.filename.clone(), self.line, self.col);
             }
         };
         self.last_tok = tok.ty;
@@ -256,7 +256,7 @@ impl Scanner {
             self.advance();
         }
         if self.eof() {
-            return err(ET::TrailingBlockComment, line, col);
+            return err(ET::TrailingBlockComment, self.filename.clone(), line, col);
         } else {
             // skip over "*/"
             self.advance();
@@ -320,7 +320,7 @@ impl Scanner {
             self.advance();
         }
         if digits.is_empty() {
-            return err(ET::MalformedHexLiteral, line, col);
+            return err(ET::MalformedHexLiteral, self.filename.clone(), line, col);
         } else {
             return Ok(Token::new(TT::IntHex, line, col, Some(digits)));
         }
@@ -360,7 +360,7 @@ impl Scanner {
         self.advance(); // consume opening double-quote
         while self.peek() != b'"' {
             if self.eof() {
-                return err(ET::TrailingString, line, col);
+                return err(ET::TrailingString, self.filename.clone(), line, col);
             }
 
             if self.peek() == b'\\' {
@@ -375,12 +375,13 @@ impl Scanner {
                     b'v' => { 0x0b }
                     b'\\' => { 0x5c }
                     b'"' => { 0x22 }
-                    _ => { return err(ET::InvalidEscape, self.line, self.col); }
+                    _ => { return err(ET::InvalidEscape, self.filename.clone(),
+                                      self.line, self.col); }
                 };
                 content.push(code as char);
                 self.advance();
             } else if self.peek() == b'\n' {
-                return err(ET::NewlineInString, self.line, self.col);
+                return err(ET::NewlineInString, self.filename.clone(), self.line, self.col);
             } else {
                 content.push(self.peek() as char);
                 self.advance();
@@ -398,7 +399,7 @@ impl Scanner {
         self.advance(); // consume opening back-quote
         while self.peek() != b'`' {
             if self.eof() {
-                return err(ET::TrailingString, line, col);
+                return err(ET::TrailingString, self.filename.clone(), line, col);
             }
             // Carriage returns are discarded in raw strings
             if self.looking_at(b"\\r") {
@@ -431,14 +432,15 @@ impl Scanner {
                 b'v' => { 0x0b }
                 b'\\' => { 0x5c }
                 b'\'' => { 0x27 }
-                _ => { return err(ET::InvalidEscape, self.line, self.col); }
+                _ => { return err(ET::InvalidEscape, self.filename.clone(),
+                                  self.line, self.col); }
             };
             content.push(code as char);
             self.advance();
         } else if self.peek() == b'\n' {
-            return err(ET::NewlineInRune, self.line, self.col);
+            return err(ET::NewlineInRune, self.filename.clone(), self.line, self.col);
         } else if self.peek() == b'\'' {
-            return err(ET::EmptyRune, line, col);
+            return err(ET::EmptyRune, self.filename.clone(), line, col);
         } else {
             content.push(self.peek() as char);
             self.advance();
@@ -448,7 +450,7 @@ impl Scanner {
             self.advance();
             return Ok(Token::new(TT::Rune, line, col, Some(content)));
         } else {
-            return err(ET::TrailingRune, line, col);
+            return err(ET::TrailingRune, self.filename.clone(), line, col);
         }
     }
 }

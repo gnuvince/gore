@@ -52,13 +52,14 @@ impl error::Error for GoreErrorType {
 #[derive(Debug)]
 pub struct GoreError {
     pub ty: GoreErrorType,
+    pub file: String,
     pub line: usize,
     pub col: usize
 }
 
 impl fmt::Display for GoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}: {}", self.line, self.col, self.ty)
+        write!(f, "{}:{}:{}: {}", self.file, self.line, self.col, self.ty)
     }
 }
 
@@ -69,17 +70,17 @@ impl error::Error for GoreError {
 }
 
 impl GoreError {
-    pub fn new(ty: GoreErrorType, line: usize,
-               col: usize) -> GoreError {
+    pub fn new(ty: GoreErrorType, file: String,
+               line: usize, col: usize) -> GoreError {
         GoreError {
-            ty: ty, line: line, col: col
+            ty: ty, file: file, line: line, col: col
         }
     }
 }
 
 pub type Result<T> = result::Result<T, GoreError>;
 
-pub fn err<T>(ty: GoreErrorType, line: usize,
-              col: usize) -> Result<T> {
-    Err(GoreError::new(ty, line, col))
+pub fn err<T>(ty: GoreErrorType, file: String,
+              line: usize, col: usize) -> Result<T> {
+    Err(GoreError::new(ty, file, line, col))
 }
