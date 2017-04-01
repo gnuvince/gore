@@ -115,6 +115,7 @@ impl Scanner {
             // looking at the same character multiple times.
             else if self.looking_at(b"<<=") { self.eat(3, TT::LeftShiftEq) }
             else if self.looking_at(b">>=") { self.eat(3, TT::RightShiftEq) }
+            else if self.looking_at(b":=")  { self.eat(2, TT::ColonEq) }
             else if self.looking_at(b"+=")  { self.eat(2, TT::PlusEq) }
             else if self.looking_at(b"-=")  { self.eat(2, TT::MinusEq) }
             else if self.looking_at(b"*=")  { self.eat(2, TT::StarEq) }

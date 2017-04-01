@@ -67,6 +67,7 @@ fn test_invalid_characters() {
 
 #[test]
 fn test_ops_and_punc() {
+    assert_tok(TT::ColonEq, b":=");
     assert_tok(TT::PlusEq, b"+=");
     assert_tok(TT::Incr, b"++");
     assert_tok(TT::Plus, b"+");
@@ -389,6 +390,8 @@ fn test_no_semi_insertion() {
     assert_toks(&[TT::StarEq], b"*=\n");
     assert_toks(&[TT::SlashEq], b"/=\n");
     assert_toks(&[TT::PercentEq], b"%=\n");
+    assert_toks(&[TT::Assign], b"=\n");
+    assert_toks(&[TT::ColonEq], b":=\n");
     assert_toks(&[TT::Bitand], b"&\n");
     assert_toks(&[TT::Bitor], b"|\n");
     assert_toks(&[TT::Bitnot], b"^\n");
@@ -426,6 +429,8 @@ fn test_no_semi_insertion() {
     assert_toks(&[TT::StarEq], b"*=");
     assert_toks(&[TT::SlashEq], b"/=");
     assert_toks(&[TT::PercentEq], b"%=");
+    assert_toks(&[TT::Assign], b"=");
+    assert_toks(&[TT::ColonEq], b":=");
     assert_toks(&[TT::Bitand], b"&");
     assert_toks(&[TT::Bitor], b"|");
     assert_toks(&[TT::Bitnot], b"^");
