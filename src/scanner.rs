@@ -15,6 +15,8 @@ pub struct Scanner {
 }
 
 impl Scanner {
+    // UTILITY METHODS
+
     pub fn new(filename: String, src: Vec<u8>) -> Scanner {
         Scanner {
             filename: filename,
@@ -50,6 +52,7 @@ impl Scanner {
         return self.src[offset];
     }
 
+    // TODO(vfoley): version with count?
     fn advance(&mut self) {
         // unix-only newlines for now
         if self.peek() == b'\n' {
@@ -77,7 +80,13 @@ impl Scanner {
         Loc::new(&self.filename, self.line, self.col)
     }
 
+
+    // SCANNING METHODS
+
     pub fn next(&mut self) -> Result<Token> {
+        // Skip whitespace and comments.
+        // If a token is returned (i.e., a semi-colon
+        // insertion), return that token.
         match self.skip_whitespace_and_comments() {
             Ok(Some(tok)) => {
                 self.last_tok = tok.ty;
@@ -88,6 +97,8 @@ impl Scanner {
         }
 
         let tok = {
+            // Insert a semi-colon, if necessary, in
+            // a file that isn't newline-terminated.
             if self.eof() {
                 if self.needs_semicolon() {
                     Token::new(TT::Semi, self.loc(), None)
@@ -96,7 +107,9 @@ impl Scanner {
                 }
             }
 
-            // Operators and punctuation
+            // Operators and punctuation.
+            // OPTIMIZE(vfoley): use nesting to avoid
+            // looking at the same character multiple times.
             else if self.looking_at(b"<<=") { self.eat(3, TT::LeftShiftEq) }
             else if self.looking_at(b">>=") { self.eat(3, TT::RightShiftEq) }
             else if self.looking_at(b"+=")  { self.eat(2, TT::PlusEq) }
@@ -142,26 +155,12 @@ impl Scanner {
             else if self.peek() == b'.' && is_digit(self.peek_next()) {
                 self.number()?
             }
-            else if self.looking_at(b".") {
-                self.eat(1, TT::Dot)
-            }
-
-            else if is_alpha(self.peek()) {
-                self.id_or_keyword()
-            }
-
-            else if is_digit(self.peek()) {
-                self.number()?
-            }
-            else if self.peek() == b'"' {
-                self.interpreted_string()?
-            }
-            else if self.peek() == b'`' {
-                self.raw_string()?
-            }
-            else if self.peek() == b'\'' {
-                self.rune()?
-            }
+            else if self.looking_at(b".") { self.eat(1, TT::Dot) }
+            else if is_alpha(self.peek()) { self.id_or_keyword() }
+            else if is_digit(self.peek()) { self.number()? }
+            else if self.peek() == b'"'   { self.interpreted_string()?}
+            else if self.peek() == b'`'   { self.raw_string()? }
+            else if self.peek() == b'\''  { self.rune()? }
             else {
                 return err(ET::UnrecognizedCharacter, self.loc());
             }
@@ -170,12 +169,12 @@ impl Scanner {
         return Ok(tok);
     }
 
-    // TODO(vfoley): ugly and nasty, refactor.
     // The return type can be one of three things:
     // - Ok(Some(Token{ ty: TT::Semi, .. })): when a semi-colon
     //   must be inserted in the token stream;
     // - Ok(None): when no token need be inserted in the stream;
     // - Err(error): when an error occurs (e.g., trailing block comment)
+    // TODO(vfoley): ugly and nasty, refactor.
     fn skip_whitespace_and_comments(&mut self) -> Result<Option<Token>> {
         loop {
             if is_whitespace(self.peek()) {
