@@ -3,4 +3,10 @@ name = "gore"
 version = "0.1.0"
 authors = ["Vincent Foley <vfoley@gmail.com>"]
 
+
+[[bin]]
+doc = false
+name = "gore"
+path = "src/main.rs"
+
 [dependencies]

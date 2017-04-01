@@ -28,6 +28,7 @@ impl Scanner {
         }
     }
 
+    /// Helper function to see if the next few characters match.
     fn looking_at(&self, bytes: &[u8]) -> bool {
         for (i, b) in bytes.iter().enumerate() {
             if self.peek_at(self.pos + i) != *b {
@@ -37,10 +38,12 @@ impl Scanner {
         return true;
     }
 
+    /// Return the character at the current position.
     fn peek(&self) -> u8 {
         self.peek_at(self.pos)
     }
 
+    /// Return the character at the next position
     fn peek_next(&self) -> u8 {
         self.peek_at(self.pos + 1)
     }
