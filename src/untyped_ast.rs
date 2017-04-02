@@ -4,21 +4,21 @@ type Id = String;
 
 
 #[derive(Debug)]
-struct Ast {
+pub struct Ast {
     package_name: Id,
     declarations: Vec<TopLevelDecl>,
     loc: Loc
 }
 
 #[derive(Debug)]
-enum TopLevelDecl {
+pub enum TopLevelDecl {
     FunDecl(FunDecl),
     TypeDecl(TypeDecl),
     VarDecl(VarDecl)
 }
 
 #[derive(Debug)]
-struct FunDecl {
+pub struct FunDecl {
     name: Id,
     params: Vec<Param>,
     return_ty: Ty,
@@ -27,14 +27,14 @@ struct FunDecl {
 }
 
 #[derive(Debug)]
-struct TypeDecl {
+pub struct TypeDecl {
     name: Id,
     ty: Ty,
     loc: Loc
 }
 
 #[derive(Debug)]
-struct VarDecl {
+pub struct VarDecl {
     name: Id,
     ty: Ty,
     init: Option<Expr>,
@@ -42,13 +42,13 @@ struct VarDecl {
 }
 
 #[derive(Debug)]
-struct Stmt {
+pub struct Stmt {
     kind: Box<StmtKind>,
     loc: Loc
 }
 
 #[derive(Debug)]
-enum StmtKind {
+pub enum StmtKind {
     Empty,
     Break,
     Continue,
@@ -84,7 +84,7 @@ enum StmtKind {
 }
 
 #[derive(Debug)]
-enum IfStmt {
+pub enum IfStmt {
     If {
         init: Option<Stmt>,
         cond: Expr,
@@ -106,7 +106,7 @@ enum IfStmt {
 
 
 #[derive(Debug)]
-enum LValue {
+pub enum LValue {
     Id(Id),
     Blank,
     ArrayAccess { lvalue: Box<LValue>, expr: Expr },
@@ -115,7 +115,7 @@ enum LValue {
 
 
 #[derive(Debug)]
-enum BinOp {
+pub enum BinOp {
     Add, Sub, Mul, Div, Mod,
     BitAnd, BitOr,
     And, Or,
@@ -124,19 +124,19 @@ enum BinOp {
 }
 
 #[derive(Debug)]
-enum UnaryOp {
+pub enum UnaryOp {
     Not, Bitnot, BitClear, Negate
 }
 
 
 #[derive(Debug)]
-struct Expr {
+pub struct Expr {
     expr_kind: Box<ExprKind>,
     loc: Loc
 }
 
 #[derive(Debug)]
-enum ExprKind {
+pub enum ExprKind {
     // Base expressions
     Id(Id),
     Int(i64),
@@ -156,7 +156,7 @@ enum ExprKind {
 
 
 #[derive(Debug)]
-enum Ty {
+pub enum Ty {
     Int,
     Float64,
     Bool,
@@ -174,7 +174,7 @@ enum Ty {
 }
 
 #[derive(Debug)]
-struct Param {
+pub struct Param {
     name: Id,
     ty: Box<Ty>
 }
