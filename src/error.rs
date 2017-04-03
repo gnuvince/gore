@@ -55,28 +55,11 @@ impl GoreErrorType {
             UnexpectedToken => "unexpected token",
         }
     }
-
-    fn code(&self) -> (char, u16) {
-        use self::GoreErrorType::*;
-        match *self {
-            Internal => ('I', 1),
-            UnrecognizedCharacter => ('S', 1),
-            TrailingBlockComment => ('S', 2),
-            MalformedHexLiteral => ('S', 3),
-            TrailingString => ('S', 4),
-            TrailingRune => ('S', 5),
-            InvalidEscape => ('S', 6),
-            NewlineInString => ('S', 7),
-            NewlineInRune => ('S', 8),
-            EmptyRune => ('S', 9),
-        }
-    }
 }
 
 impl fmt::Display for GoreErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let (category, id) = self.code();
-        write!(f, "{} ({}{:03})", self.to_str(), category, id)
+        write!(f, "{} (E{:03})", self.to_str(), *self as u16)
     }
 }
 

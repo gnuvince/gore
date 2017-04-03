@@ -13,8 +13,9 @@ fn main() {
     let mut bytes = Vec::new();
     let _ = stdin.read_to_end(&mut bytes);
     let mut scanner = Scanner::new("<stdin>".to_string(), bytes);
-    //scan(&mut scanner);
+    scan(&mut scanner);
 
+    /*
     match all_tokens(&mut scanner) {
         Ok(toks) => {
             let mut parser = Parser::new(toks);
@@ -24,6 +25,7 @@ fn main() {
             println!("{}", err);
         }
     }
+     */
 }
 
 
@@ -39,9 +41,4 @@ fn scan(scanner: &mut Scanner) {
             }
         }
     }
-}
-
-
-fn all_tokens(scanner: &mut Scanner) -> Result<Vec<Token>, GoreError> {
-
 }
