@@ -85,6 +85,22 @@ impl Scanner {
 
 
     // SCANNING METHODS
+    pub fn all_tokens(&mut self) -> Result<Vec<Token>> {
+        let mut toks = Vec::new();
+        loop {
+            match self.next() {
+                Ok(tok) => {
+                    let is_eof = tok.is_eof();
+                    toks.push(tok);
+                    if is_eof { break; }
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            }
+        }
+        return Ok(toks);
+    }
 
     pub fn next(&mut self) -> Result<Token> {
         // Skip whitespace and comments.

@@ -6,6 +6,7 @@ extern crate gore;
 use gore::token::Token;
 use gore::scanner::Scanner;
 use gore::error::GoreError;
+use gore::parser::Parser;
 
 fn main() {
     let mut stdin = io::stdin();
@@ -13,11 +14,11 @@ fn main() {
     let _ = stdin.read_to_end(&mut bytes);
     let mut scanner = Scanner::new("<stdin>".to_string(), bytes);
     //scan(&mut scanner);
+
     match all_tokens(&mut scanner) {
-        Ok(ref toks) => {
-            for tok in toks {
-                println!("{:?}", tok);
-            }
+        Ok(toks) => {
+            let mut parser = Parser::new(toks);
+            println!("{:#?}", parser.parse());
         }
         Err(err) => {
             println!("{}", err);
@@ -42,17 +43,5 @@ fn scan(scanner: &mut Scanner) {
 
 
 fn all_tokens(scanner: &mut Scanner) -> Result<Vec<Token>, GoreError> {
-    let mut toks = Vec::new();
-    loop {
-        match scanner.next() {
-            Ok(tok) => {
-                if tok.is_eof() { break; }
-                toks.push(tok);
-            }
-            Err(err) => {
-                return Err(err);
-            }
-        }
-    }
-    return Ok(toks);
+
 }

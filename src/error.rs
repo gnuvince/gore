@@ -8,15 +8,25 @@ pub enum GoreErrorType {
     Internal,
 
     // Scanner errors
-    UnrecognizedCharacter,
-    TrailingBlockComment,
-    MalformedHexLiteral,
-    TrailingString,
-    TrailingRune,
-    InvalidEscape,
-    NewlineInString,
-    NewlineInRune,
     EmptyRune,
+    InvalidEscape,
+    MalformedHexLiteral,
+    NewlineInRune,
+    NewlineInString,
+    TrailingBlockComment,
+    TrailingRune,
+    TrailingString,
+    UnrecognizedCharacter,
+
+    // Parser errors
+    ExpectedDeclaration,
+    ExpectedExpression,
+    InvalidVarDecl,
+    MissingLexeme,
+    MissingPackageDeclaration,
+    MissingPackageName,
+    MissingVariableName,
+    UnexpectedToken,
 }
 
 impl GoreErrorType {
@@ -24,15 +34,25 @@ impl GoreErrorType {
         use self::GoreErrorType::*;
         match *self {
             Internal => "internal compiler error",
-            UnrecognizedCharacter => "unrecognized character",
-            TrailingBlockComment => "unfinished block comment",
-            MalformedHexLiteral => "malformed hexadecimal literal",
-            TrailingString => "unfinished string literal",
-            TrailingRune => "unfinished rune literal",
-            InvalidEscape => "invalid escape code",
-            NewlineInString => "newline in interpreted string literal",
-            NewlineInRune => "newline in rune literal",
+
             EmptyRune => "empty rune literal",
+            InvalidEscape => "invalid escape code",
+            MalformedHexLiteral => "malformed hexadecimal literal",
+            NewlineInRune => "newline in rune literal",
+            NewlineInString => "newline in interpreted string literal",
+            TrailingBlockComment => "unfinished block comment",
+            TrailingRune => "unfinished rune literal",
+            TrailingString => "unfinished string literal",
+            UnrecognizedCharacter => "unrecognized character",
+
+            ExpectedDeclaration => "expected declaration",
+            ExpectedExpression => "expected expression",
+            InvalidVarDecl => "invalid var declaration",
+            MissingLexeme => "lexeme is missing",
+            MissingPackageDeclaration => "missing package declaration",
+            MissingPackageName => "package name is missing",
+            MissingVariableName => "missing variable name",
+            UnexpectedToken => "unexpected token",
         }
     }
 

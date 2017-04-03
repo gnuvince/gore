@@ -1,13 +1,22 @@
 use loc::Loc;
 
-type Id = String;
-
+pub type Id = String;
 
 #[derive(Debug)]
 pub struct Ast {
     package_name: Id,
     declarations: Vec<TopLevelDecl>,
     loc: Loc
+}
+
+impl Ast {
+    pub fn new(name: Id, decls: Vec<TopLevelDecl>, loc: Loc) -> Ast {
+        Ast {
+            package_name: name,
+            declarations: decls,
+            loc: loc
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -36,9 +45,15 @@ pub struct TypeDecl {
 #[derive(Debug)]
 pub struct VarDecl {
     name: Id,
-    ty: Ty,
+    ty: Option<Ty>,
     init: Option<Expr>,
     loc: Loc
+}
+
+impl VarDecl {
+    pub fn new(name: Id, ty: Option<Ty>, init: Option<Expr>, loc: Loc) -> VarDecl {
+        VarDecl { name: name, ty: ty, init: init, loc: loc }
+    }
 }
 
 #[derive(Debug)]
@@ -135,6 +150,15 @@ pub struct Expr {
     loc: Loc
 }
 
+impl Expr {
+    pub fn new(kind: Box<ExprKind>, loc: Loc) -> Expr {
+        Expr {
+            expr_kind: kind,
+            loc: loc
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExprKind {
     // Base expressions
@@ -157,20 +181,13 @@ pub enum ExprKind {
 
 #[derive(Debug)]
 pub enum Ty {
-    Int,
-    Float64,
-    Bool,
-    String,
-    Rune,
-
-    Id(Id),
+    Name(Id),
     Slice(Box<Ty>),
     Array(usize, Box<Ty>),
     Struct(Vec<Param>),
     Func(Vec<Ty>, Box<Ty>),
 
     Void, // Not an actual Go type, used for func return types
-    TyAlias(Id, Box<Ty>)
 }
 
 #[derive(Debug)]
