@@ -129,7 +129,7 @@ pub enum LValue {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinOp {
     Add, Sub, Mul, Div, Mod,
     BitAnd, BitOr,
@@ -138,13 +138,13 @@ pub enum BinOp {
     LShift, RShift
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     Not, Bitnot, BitClear, Negate
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr {
     expr_kind: Box<ExprKind>,
     loc: Loc
@@ -159,7 +159,7 @@ impl Expr {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprKind {
     // Base expressions
     Id(Id),
@@ -179,7 +179,7 @@ pub enum ExprKind {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ty {
     Name(Id),
     Slice(Box<Ty>),
@@ -190,7 +190,7 @@ pub enum Ty {
     Void, // Not an actual Go type, used for func return types
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Param {
     name: Id,
     ty: Box<Ty>

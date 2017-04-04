@@ -78,63 +78,90 @@ impl Parser {
         self.eat(TT::Semi, ET::UnexpectedToken)?;
 
         let mut decls = Vec::new();
-        while !self.looking_at(TT::Eof) {
-            decls.push(self.parse_toplevel_decl()?);
+        while self.looking_at_any(&[TT::Var, TT::Func, TT::Type]) {
+            decls.extend(self.parse_toplevel_decl()?);
         }
+
+        self.eat(TT::Eof, ET::UnexpectedToken)?;
 
         let ast = ast::Ast::new(pname, decls, loc);
         return Ok(ast);
     }
 
-    fn parse_toplevel_decl(&mut self) -> Result<ast::TopLevelDecl> {
+    fn parse_toplevel_decl(&mut self) -> Result<Vec<ast::TopLevelDecl>> {
         if self.looking_at(TT::Var) {
-            let vd = self.parse_var_decl()?;
-            Ok(ast::TopLevelDecl::VarDecl(vd))
+            let var_decls = self.parse_var_decl()?;
+            let mut top_decls = Vec::new();
+            for vd in var_decls {
+                top_decls.push(ast::TopLevelDecl::VarDecl(vd));
+            }
+            return Ok(top_decls);
         }
         else {
-            err(ET::ExpectedDeclaration, self.loc())
+            return err(ET::ExpectedDeclaration, self.loc());
         }
     }
 
-    fn parse_var_decl(&mut self) -> Result<ast::VarDecl> {
+    fn parse_var_decl(&mut self) -> Result<Vec<ast::VarDecl>> {
         let var_loc = self.loc();
         self.eat(TT::Var, ET::Internal)?;
 
         if self.looking_at(TT::Id) {
-            let (vname, ty_opt, init_opt) = self.parse_var_spec(&var_loc)?;
-            self.eat(TT::Semi, ET::UnexpectedToken)?;
-            return Ok(ast::VarDecl::new(vname, ty_opt, init_opt, var_loc));
+            let (mut vnames, ty_opt, init_vec_opt) = self.parse_var_spec(&var_loc)?;
+            let mut decls = Vec::new();
+            while let Some(vname) = vnames.pop() {
+                decls.push(ast::VarDecl::new(vname, ty_opt.clone(), None, var_loc.clone()));
+            }
+            decls.reverse();
+            return Ok(decls);
         } else {
-            return err(ET::UnexpectedToken, self.loc());
+            return err(ET::InvalidVarDecl, self.loc());
         }
     }
 
-    fn parse_var_spec(&mut self, loc: &Loc) -> Result<(ast::Id, Option<ast::Ty>, Option<ast::Expr>)> {
-        let vname = self.parse_id()?;
+    fn parse_var_spec(&mut self, loc: &Loc) ->
+        Result<(Vec<ast::Id>, Option<ast::Ty>, Option<Vec<ast::Expr>>)> {
+        let vnames = self.parse_id_list()?;
         let ty_opt =
             if self.looking_at_any(&[TT::Id, TT::LBracket, TT::Struct]) {
                 Some(self.parse_ty()?)
             } else {
                 None
             };
-        let init_opt =
+        let init_vec_opt =
             if self.looking_at(TT::Assign) {
-                self.eat(TT::Assign, ET::UnexpectedToken)?;
-                Some(self.parse_expr()?)
+                self.advance();
+                Some(self.parse_expr_list()?)
             } else {
                 None
             };
+        self.eat(TT::Semi, ET::UnexpectedToken)?;
 
-        if ty_opt.is_none() && init_opt.is_none() {
+        let init_is_none = init_vec_opt.is_none();
+        let init_len = init_vec_opt.as_ref().map_or(0, |v| v.len());
+
+        if ty_opt.is_none() && init_is_none {
             return err(ET::InvalidVarDecl, loc.clone());
+        } else if !init_is_none && vnames.len() != init_len {
+            return err(ET::VarExprLengthMismatch, loc.clone());
         } else {
-            return Ok((vname, ty_opt, init_opt));
+            return Ok((vnames, ty_opt, init_vec_opt));
         }
     }
 
     fn parse_id(&mut self) -> Result<ast::Id> {
         self.eat(TT::Id, ET::UnexpectedToken)
             .and_then(copy_lexeme)
+    }
+
+    fn parse_id_list(&mut self) -> Result<Vec<ast::Id>> {
+        let mut ids = Vec::new();
+        ids.push(self.parse_id()?);
+        while self.looking_at(TT::Comma) {
+            self.advance();
+            ids.push(self.parse_id()?);
+        }
+        return Ok(ids);
     }
 
     fn parse_ty(&mut self) -> Result<ast::Ty> {
@@ -169,6 +196,16 @@ impl Parser {
         } else {
             return err(ET::ExpectedExpression, self.loc());
         }
+    }
+
+    fn parse_expr_list(&mut self) -> Result<Vec<ast::Expr>> {
+        let mut exprs = Vec::new();
+        exprs.push(self.parse_expr()?);
+        while self.looking_at(TT::Comma) {
+            self.advance();
+            exprs.push(self.parse_expr()?);
+        }
+        return Ok(exprs);
     }
 }
 

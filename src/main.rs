@@ -13,10 +13,9 @@ fn main() {
     let mut bytes = Vec::new();
     let _ = stdin.read_to_end(&mut bytes);
     let mut scanner = Scanner::new("<stdin>".to_string(), bytes);
-    scan(&mut scanner);
+    //scan(&mut scanner);
 
-    /*
-    match all_tokens(&mut scanner) {
+    match scanner.all_tokens() {
         Ok(toks) => {
             let mut parser = Parser::new(toks);
             println!("{:#?}", parser.parse());
@@ -25,7 +24,6 @@ fn main() {
             println!("{}", err);
         }
     }
-     */
 }
 
 

@@ -27,6 +27,7 @@ pub enum GoreErrorType {
     MissingPackageName,
     MissingVariableName,
     UnexpectedToken,
+    VarExprLengthMismatch,
 }
 
 impl GoreErrorType {
@@ -53,6 +54,8 @@ impl GoreErrorType {
             MissingPackageName => "package name is missing",
             MissingVariableName => "missing variable name",
             UnexpectedToken => "unexpected token",
+            VarExprLengthMismatch =>
+                "variable list and expression list must have the same length",
         }
     }
 }
