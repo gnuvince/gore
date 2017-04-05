@@ -95,6 +95,7 @@ impl Parser {
             for vd in var_decls {
                 top_decls.push(ast::TopLevelDecl::VarDecl(vd));
             }
+            self.eat(TT::Semi, ET::UnexpectedToken)?;
             return Ok(top_decls);
         }
         else {
@@ -108,23 +109,25 @@ impl Parser {
         self.advance(); // skip 'var' keyword
 
         if self.looking_at(TT::Id) {
-            let (mut vnames, ty_opt, mut init_vec) = self.parse_var_spec(&var_loc)?;
-            self.eat(TT::Semi, ET::UnexpectedToken)?;
-
-            let mut decls = Vec::new();
-            while let Some(vname) = vnames.pop() {
-                let init_exp = init_vec.pop();
-                decls.push(ast::VarDecl::new(vname, ty_opt.clone(), init_exp, var_loc.clone()));
-            }
-            decls.reverse();
-
-            return Ok(decls);
+            let (vnames, ty_opt, init_vec) = self.parse_var_spec(&var_loc)?;
+            return Ok(construct_var_decls(vnames, ty_opt, init_vec, &var_loc));
         }
         else if self.looking_at(TT::LParen) {
             self.eat(TT::LParen, ET::UnexpectedToken)?;
-
+            let mut decls = Vec::new();
+            while self.looking_at(TT::Id) {
+                let (vnames, ty_opt, init_vec) = self.parse_var_spec(&var_loc)?;
+                decls.extend(
+                    construct_var_decls(vnames, ty_opt, init_vec, &var_loc)
+                );
+                self.eat(TT::Semi, ET::UnexpectedToken)?;
+            }
             self.eat(TT::RParen, ET::UnexpectedToken)?;
-            return err(ET::InvalidVarDecl, self.loc());
+            if decls.is_empty() {
+                return err(ET::InvalidVarDecl, var_loc);
+            } else {
+                return Ok(decls);
+            }
         }
         else {
             return err(ET::InvalidVarDecl, self.loc());
@@ -239,4 +242,23 @@ fn usize_lexeme(t: &Token) -> Result<usize> {
         Ok(n) => Ok(n),
         Err(_) => err(ET::MissingLexeme, t.loc.clone()),
     }
+}
+
+
+fn construct_var_decls(mut vnames: Vec<ast::Id>,
+                       ty_opt: Option<ast::Ty>,
+                       mut init_vec: Vec<ast::Expr>,
+                       var_loc: &Loc)
+                       -> Vec<ast::VarDecl> {
+    // pre-cond: init_vec.len() == 0 || init_vec.len() == vnames.len()
+    let mut decls = Vec::new();
+    while let Some(vname) = vnames.pop() {
+        let init_exp = init_vec.pop();
+        decls.push(ast::VarDecl::new(vname,
+                                     ty_opt.clone(),
+                                     init_exp,
+                                     var_loc.clone()));
+    }
+    decls.reverse();
+    return decls;
 }
