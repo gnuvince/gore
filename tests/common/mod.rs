@@ -9,12 +9,18 @@ pub fn parse_error(src: &[u8]) -> Option<ET> {
     let toks =
         match scanner.all_tokens() {
             Ok(tokens) => tokens,
-            Err(gore_err) => { return Some(gore_err.ty); }
+            Err(gore_err) => {
+                return Some(gore_err.ty);
+            }
         };
     let mut parser = Parser::new(toks);
     match parser.parse() {
-        Err(gore_err) => Some(gore_err.ty),
-        Ok(_) => None
+        Err(gore_err) => {
+            Some(gore_err.ty)
+        }
+        Ok(_ast) => {
+            None
+        }
     }
 
 }

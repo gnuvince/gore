@@ -102,25 +102,37 @@ impl Parser {
         }
     }
 
+    // Too complex and convoluted
     fn parse_var_decl(&mut self) -> Result<Vec<ast::VarDecl>> {
         let var_loc = self.loc();
-        self.eat(TT::Var, ET::Internal)?;
+        self.advance(); // skip 'var' keyword
 
         if self.looking_at(TT::Id) {
-            let (mut vnames, ty_opt, init_vec_opt) = self.parse_var_spec(&var_loc)?;
+            let (mut vnames, ty_opt, mut init_vec) = self.parse_var_spec(&var_loc)?;
+            self.eat(TT::Semi, ET::UnexpectedToken)?;
+
             let mut decls = Vec::new();
             while let Some(vname) = vnames.pop() {
-                decls.push(ast::VarDecl::new(vname, ty_opt.clone(), None, var_loc.clone()));
+                let init_exp = init_vec.pop();
+                decls.push(ast::VarDecl::new(vname, ty_opt.clone(), init_exp, var_loc.clone()));
             }
             decls.reverse();
+
             return Ok(decls);
-        } else {
+        }
+        else if self.looking_at(TT::LParen) {
+            self.eat(TT::LParen, ET::UnexpectedToken)?;
+
+            self.eat(TT::RParen, ET::UnexpectedToken)?;
+            return err(ET::InvalidVarDecl, self.loc());
+        }
+        else {
             return err(ET::InvalidVarDecl, self.loc());
         }
     }
 
     fn parse_var_spec(&mut self, loc: &Loc) ->
-        Result<(Vec<ast::Id>, Option<ast::Ty>, Option<Vec<ast::Expr>>)> {
+        Result<(Vec<ast::Id>, Option<ast::Ty>, Vec<ast::Expr>)> {
         let vnames = self.parse_id_list()?;
         let ty_opt =
             if self.looking_at_any(&[TT::Id, TT::LBracket, TT::Struct]) {
@@ -128,24 +140,28 @@ impl Parser {
             } else {
                 None
             };
-        let init_vec_opt =
+        let init_vec =
             if self.looking_at(TT::Assign) {
                 self.advance();
-                Some(self.parse_expr_list()?)
+                self.parse_expr_list()?
             } else {
-                None
+                Vec::new()
             };
-        self.eat(TT::Semi, ET::UnexpectedToken)?;
 
-        let init_is_none = init_vec_opt.is_none();
-        let init_len = init_vec_opt.as_ref().map_or(0, |v| v.len());
-
-        if ty_opt.is_none() && init_is_none {
-            return err(ET::InvalidVarDecl, loc.clone());
-        } else if !init_is_none && vnames.len() != init_len {
-            return err(ET::VarExprLengthMismatch, loc.clone());
-        } else {
-            return Ok((vnames, ty_opt, init_vec_opt));
+        match (ty_opt, init_vec.len()) {
+            (None, 0) => {
+                return err(ET::InvalidVarDecl, loc.clone());
+            }
+            (None, n) if n != vnames.len() => {
+                return err(ET::VarExprLengthMismatch, loc.clone())
+            }
+            (ty_opt, n) => {
+                if n != 0 && n != vnames.len() {
+                    return err(ET::VarExprLengthMismatch, loc.clone())
+                } else {
+                    return Ok((vnames, ty_opt, init_vec));
+                }
+            }
         }
     }
 

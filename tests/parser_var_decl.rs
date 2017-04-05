@@ -5,43 +5,31 @@ use gore::error::GoreErrorType as ET;
 mod common;
 use common::parse_error;
 
-#[test]
-fn test_var_decl() {
-    assert_eq!(None, parse_error(VAR_DECL_OK_01));
-    assert_eq!(None, parse_error(VAR_DECL_OK_02));
-    assert_eq!(None, parse_error(VAR_DECL_OK_03));
-    assert_eq!(None, parse_error(VAR_DECL_OK_04));
-
-    assert_eq!(Some(ET::UnexpectedToken), parse_error(VAR_DECL_ERR_01));
-    assert_eq!(Some(ET::InvalidVarDecl), parse_error(VAR_DECL_ERR_02));
+fn parse_var_decl(decl: &[u8]) -> Option<ET> {
+    let mut src = b"package main\n".to_vec();
+    src.extend_from_slice(decl);
+    parse_error(&src[..])
 }
 
-const VAR_DECL_OK_01: &'static [u8] = b"
-package main
-var x int
-";
+#[test]
+fn var_decl_ok() {
+    assert_eq!(None, parse_var_decl(b"var x int"));
+    assert_eq!(None, parse_var_decl(b"var x, y float64"));
+    assert_eq!(None, parse_var_decl(b"var x, y, z []string"));
 
-const VAR_DECL_OK_02: &'static [u8] = b"
-package main
-var x = y
-";
+    assert_eq!(None, parse_var_decl(b"var x = a"));
+    assert_eq!(None, parse_var_decl(b"var x, y = a, b"));
+    assert_eq!(None, parse_var_decl(b"var x, y, z = a, b, c"));
 
-const VAR_DECL_OK_03: &'static [u8] = b"
-package main
-var x []float64 = y
-";
+    assert_eq!(None, parse_var_decl(b"var x int = a"));
+    assert_eq!(None, parse_var_decl(b"var x, y int = a, b"));
+    assert_eq!(None, parse_var_decl(b"var x, y, z int = a, b, c"));
+}
 
-const VAR_DECL_OK_04: &'static [u8] = b"
-package main
-var x int, y float64
-";
-
-const VAR_DECL_ERR_01: &'static [u8] = b"
-package main
-var
-";
-
-const VAR_DECL_ERR_02: &'static [u8] = b"
-package main
-var x
-";
+#[test]
+fn var_decl_err() {
+    assert_eq!(Some(ET::InvalidVarDecl), parse_var_decl(b"var"));
+    assert_eq!(Some(ET::InvalidVarDecl), parse_var_decl(b"var x"));
+    assert_eq!(Some(ET::VarExprLengthMismatch), parse_var_decl(b"var x = a, b"));
+    assert_eq!(Some(ET::VarExprLengthMismatch), parse_var_decl(b"var x, y = a"));
+}

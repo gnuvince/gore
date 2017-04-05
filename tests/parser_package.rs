@@ -1,12 +1,6 @@
 extern crate gore;
 
-use gore::token::Token;
-use gore::token::TokenType as TT;
 use gore::error::GoreErrorType as ET;
-use gore::error::Result;
-use gore::scanner::Scanner;
-use gore::parser::Parser;
-use gore::untyped_ast as ast;
 
 mod common;
 use common::parse_error;
