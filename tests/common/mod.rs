@@ -24,3 +24,10 @@ pub fn parse_error(src: &[u8]) -> Option<ET> {
     }
 
 }
+
+
+pub fn parse_decl(decl: &[u8]) -> Option<ET> {
+    let mut src = b"package main\n".to_vec();
+    src.extend_from_slice(decl);
+    parse_error(&src[..])
+}

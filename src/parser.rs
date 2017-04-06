@@ -98,6 +98,15 @@ impl Parser {
             self.eat(TT::Semi, ET::UnexpectedToken)?;
             return Ok(top_decls);
         }
+        else if self.looking_at(TT::Type) {
+            let ty_decls = self.parse_type_decl()?;
+            let mut top_decls = Vec::new();
+            for td in ty_decls {
+                top_decls.push(ast::TopLevelDecl::TypeDecl(td));
+            }
+            self.eat(TT::Semi, ET::UnexpectedToken)?;
+            return Ok(top_decls);
+        }
         else {
             return err(ET::ExpectedDeclaration, self.loc());
         }
@@ -166,6 +175,42 @@ impl Parser {
                 }
             }
         }
+    }
+
+    fn parse_type_decl(&mut self) -> Result<Vec<ast::TypeDecl>> {
+        let ty_loc = self.loc();
+        self.advance();
+        if self.looking_at(TT::Id) {
+            let ty_decl = self.parse_one_type_decl()?;
+            return Ok(vec![ty_decl]);
+        }
+        else if self.looking_at(TT::LParen) {
+            self.eat(TT::LParen, ET::UnexpectedToken);
+            let mut ty_decls = Vec::new();
+            while self.looking_at(TT::Id) {
+                ty_decls.push(self.parse_one_type_decl()?);
+                self.eat(TT::Semi, ET::UnexpectedToken);
+            }
+            self.eat(TT::RParen, ET::UnexpectedToken);
+            if ty_decls.is_empty() {
+                return err(ET::InvalidTypeDecl, ty_loc);
+            } else {
+                return Ok(ty_decls);
+            }
+        }
+        else {
+            return err(ET::InvalidTypeDecl, ty_loc);
+        }
+    }
+
+    fn parse_one_type_decl(&mut self) -> Result<ast::TypeDecl> {
+        let loc = self.loc();
+        self.eat(TT::Id, ET::UnexpectedToken);
+        let id = copy_lexeme(self.peek_prev())?;
+        let ty = self.parse_ty().or_else(|gore_err|
+            err(ET::InvalidTypeDecl, gore_err.loc)
+        )?;
+        return Ok(ast::TypeDecl::new(id, ty, loc));
     }
 
     fn parse_id(&mut self) -> Result<ast::Id> {

@@ -21,13 +21,13 @@ impl Ast {
 
 #[derive(Debug)]
 pub enum TopLevelDecl {
-    FunDecl(FunDecl),
+    FuncDecl(FuncDecl),
     TypeDecl(TypeDecl),
     VarDecl(VarDecl)
 }
 
 #[derive(Debug)]
-pub struct FunDecl {
+pub struct FuncDecl {
     name: Id,
     params: Vec<Param>,
     return_ty: Ty,
@@ -40,6 +40,12 @@ pub struct TypeDecl {
     name: Id,
     ty: Ty,
     loc: Loc
+}
+
+impl TypeDecl {
+    pub fn new(name: Id, ty: Ty, loc: Loc) -> TypeDecl {
+        TypeDecl {name: name, ty: ty, loc: loc}
+    }
 }
 
 #[derive(Debug)]

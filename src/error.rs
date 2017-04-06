@@ -28,6 +28,7 @@ pub enum GoreErrorType {
     MissingVariableName,
     UnexpectedToken,
     VarExprLengthMismatch,
+    InvalidTypeDecl,
 }
 
 impl GoreErrorType {
@@ -56,6 +57,7 @@ impl GoreErrorType {
             UnexpectedToken => "unexpected token",
             VarExprLengthMismatch =>
                 "variable list and expression list must have the same length",
+            InvalidTypeDecl => "invalid type declaration"
         }
     }
 }
