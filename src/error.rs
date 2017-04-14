@@ -1,22 +1,24 @@
-use loc::Loc;
-use std::error;
+use std::error::{self, Error};
 use std::fmt;
 use std::result;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+use loc::Loc;
+use token::TokenType as TT;
+
+#[derive(Debug, Clone)]
 pub enum GoreErrorType {
-    Internal,
+    Internal(String),
 
     // Scanner errors
     EmptyRune,
-    InvalidEscape,
-    MalformedHexLiteral,
+    InvalidEscape(char),
+    EmptyHexLiteral,
     NewlineInRune,
     NewlineInString,
     TrailingBlockComment,
     TrailingRune,
     TrailingString,
-    UnrecognizedCharacter,
+    UnrecognizedCharacter(char),
 
     // Parser errors
     ExpectedDeclaration,
@@ -26,53 +28,23 @@ pub enum GoreErrorType {
     MissingPackageDeclaration,
     MissingPackageName,
     MissingVariableName,
-    UnexpectedToken,
+    UnexpectedToken(TT, Vec<TT>),
     VarExprLengthMismatch,
     InvalidTypeDecl,
     ExpectedParamList,
 }
 
 impl GoreErrorType {
-    fn to_str(&self) -> &str {
+    fn extra_info(&self) -> String {
         use self::GoreErrorType::*;
         match *self {
-            Internal => "internal compiler error",
-
-            EmptyRune => "empty rune literal",
-            InvalidEscape => "invalid escape code",
-            MalformedHexLiteral => "malformed hexadecimal literal",
-            NewlineInRune => "newline in rune literal",
-            NewlineInString => "newline in interpreted string literal",
-            TrailingBlockComment => "unfinished block comment",
-            TrailingRune => "unfinished rune literal",
-            TrailingString => "unfinished string literal",
-            UnrecognizedCharacter => "unrecognized character",
-
-            ExpectedDeclaration => "expected declaration (var, type, func)",
-            ExpectedExpression => "expected expression",
-            InvalidVarDecl => "invalid var declaration",
-            MissingLexeme => "lexeme is missing",
-            MissingPackageDeclaration => "missing package declaration",
-            MissingPackageName => "package name is missing",
-            MissingVariableName => "missing variable name",
-            UnexpectedToken => "unexpected token",
-            VarExprLengthMismatch =>
-                "variable list and expression list must have the same length",
-            InvalidTypeDecl => "invalid type declaration",
-            ExpectedParamList => "expected list of parameters",
+            Internal(ref s) => s.to_string(),
+            InvalidEscape(c) => format!("'\\{}'", c),
+            UnrecognizedCharacter(c) => format!("{}", c),
+            UnexpectedToken(actual, ref expected) =>
+                format!("found: {}; expected: {:?}", actual, expected),
+            _ => String::new()
         }
-    }
-}
-
-impl fmt::Display for GoreErrorType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} (E{:03})", self.to_str(), *self as u16)
-    }
-}
-
-impl error::Error for GoreErrorType {
-    fn description(&self) -> &str {
-        self.to_str()
     }
 }
 
@@ -85,13 +57,44 @@ pub struct GoreError {
 
 impl fmt::Display for GoreError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.loc, self.ty)
+        write!(f, "{}: {}", self.loc, self.description())?;
+        let extra_info = self.ty.extra_info();
+        if !extra_info.is_empty() {
+            write!(f, ": {}", extra_info)?;
+        }
+        Ok(())
     }
 }
 
 impl error::Error for GoreError {
     fn description(&self) -> &str {
-        self.ty.description()
+        use self::GoreErrorType::*;
+        match self.ty {
+            Internal(_) => "internal compiler error",
+
+            EmptyRune => "empty rune literal",
+            InvalidEscape(_) => "invalid escape code",
+            EmptyHexLiteral => "empty hexadecimal literal",
+            NewlineInRune => "newline in rune literal",
+            NewlineInString => "newline in interpreted string literal",
+            TrailingBlockComment => "unfinished block comment",
+            TrailingRune => "unfinished rune literal",
+            TrailingString => "unfinished string literal",
+            UnrecognizedCharacter(_) => "unrecognized character",
+
+            ExpectedDeclaration => "expected declaration (var, type, func)",
+            ExpectedExpression => "expected expression",
+            InvalidVarDecl => "invalid var declaration",
+            MissingLexeme => "lexeme is missing",
+            MissingPackageDeclaration => "missing package declaration",
+            MissingPackageName => "package name is missing",
+            MissingVariableName => "missing variable name",
+            UnexpectedToken(_, _) => "unexpected token",
+            VarExprLengthMismatch =>
+                "variable list and expression list must have the same length",
+            InvalidTypeDecl => "invalid type declaration",
+            ExpectedParamList => "expected list of parameters",
+        }
     }
 }
 
