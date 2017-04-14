@@ -29,6 +29,7 @@ pub enum GoreErrorType {
     UnexpectedToken,
     VarExprLengthMismatch,
     InvalidTypeDecl,
+    ExpectedParamList,
 }
 
 impl GoreErrorType {
@@ -47,7 +48,7 @@ impl GoreErrorType {
             TrailingString => "unfinished string literal",
             UnrecognizedCharacter => "unrecognized character",
 
-            ExpectedDeclaration => "expected declaration",
+            ExpectedDeclaration => "expected declaration (var, type, func)",
             ExpectedExpression => "expected expression",
             InvalidVarDecl => "invalid var declaration",
             MissingLexeme => "lexeme is missing",
@@ -57,7 +58,8 @@ impl GoreErrorType {
             UnexpectedToken => "unexpected token",
             VarExprLengthMismatch =>
                 "variable list and expression list must have the same length",
-            InvalidTypeDecl => "invalid type declaration"
+            InvalidTypeDecl => "invalid type declaration",
+            ExpectedParamList => "expected list of parameters",
         }
     }
 }

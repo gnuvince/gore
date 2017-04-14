@@ -107,6 +107,10 @@ impl Parser {
             self.eat(TT::Semi, ET::UnexpectedToken)?;
             return Ok(top_decls);
         }
+        else if self.looking_at(TT::Func) {
+            let func_decl = self.parse_func_decl()?;
+            return Ok(vec![ast::TopLevelDecl::FuncDecl(func_decl)]);
+        }
         else {
             return err(ET::ExpectedDeclaration, self.loc());
         }
@@ -213,6 +217,24 @@ impl Parser {
         return Ok(ast::TypeDecl::new(id, ty, loc));
     }
 
+    fn parse_func_decl(&mut self) -> Result<ast::FuncDecl> {
+        let loc = self.loc();
+        self.eat(TT::Func, ET::UnexpectedToken)?;
+        let func_name = self.parse_id()?;
+        self.eat(TT::LParen, ET::ExpectedParamList)?;
+        self.eat(TT::RParen, ET::UnexpectedToken)?;
+        self.eat(TT::LBrace, ET::UnexpectedToken)?;
+        self.eat(TT::RBrace, ET::UnexpectedToken)?;
+        self.eat(TT::Semi, ET::UnexpectedToken)?;
+        return Ok(ast::FuncDecl::new(
+            func_name,
+            vec![],
+            ast::Ty::Void,
+            vec![],
+            loc
+        ));
+    }
+
     fn parse_id(&mut self) -> Result<ast::Id> {
         self.eat(TT::Id, ET::UnexpectedToken)
             .and_then(copy_lexeme)
@@ -253,10 +275,14 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Result<ast::Expr> {
+        let loc = self.loc();
         if self.looking_at(TT::Id) {
-            let loc = self.loc();
             let id = self.parse_id()?;
             return Ok(ast::Expr::new(Box::new(ast::ExprKind::Id(id)), loc));
+        } else if self.looking_at(TT::Int) {
+            let int_val = self.eat(TT::Int, ET::UnexpectedToken)
+                .and_then(i64_lexeme)?;
+            return Ok(ast::Expr::new(Box::new(ast::ExprKind::Int(int_val)), loc));
         } else {
             return err(ET::ExpectedExpression, self.loc());
         }
@@ -284,6 +310,14 @@ fn copy_lexeme(t: &Token) -> Result<String> {
 fn usize_lexeme(t: &Token) -> Result<usize> {
     let lexeme = copy_lexeme(t)?;
     match lexeme.parse::<usize>() {
+        Ok(n) => Ok(n),
+        Err(_) => err(ET::MissingLexeme, t.loc.clone()),
+    }
+}
+
+fn i64_lexeme(t: &Token) -> Result<i64> {
+    let lexeme = copy_lexeme(t)?;
+    match lexeme.parse::<i64>() {
         Ok(n) => Ok(n),
         Err(_) => err(ET::MissingLexeme, t.loc.clone()),
     }

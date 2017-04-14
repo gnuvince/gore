@@ -35,6 +35,22 @@ pub struct FuncDecl {
     loc: Loc
 }
 
+impl FuncDecl {
+    pub fn new(name: Id,
+               params: Vec<Param>,
+               return_ty: Ty,
+               body: Vec<Stmt>,
+               loc: Loc) -> FuncDecl {
+        FuncDecl {
+            name: name,
+            params: params,
+            return_ty: return_ty,
+            body: body,
+            loc: loc
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct TypeDecl {
     name: Id,
