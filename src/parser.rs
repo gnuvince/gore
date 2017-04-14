@@ -60,8 +60,8 @@ impl Parser {
     }
 
 
-    fn eat(&mut self, ty: TT, err_ty: ET) -> Result<&Token> {
-        if self.looking_at(ty) {
+    fn eat_or(&mut self, tok_ty: TT, err_ty: ET) -> Result<&Token> {
+        if self.looking_at(tok_ty) {
             self.advance();
             return Ok(self.peek_prev());
         } else {
@@ -69,20 +69,33 @@ impl Parser {
         }
     }
 
+    fn eat(&mut self, expected_tok: TT) -> Result<&Token> {
+        if self.looking_at(expected_tok) {
+            self.advance();
+            return Ok(self.peek_prev());
+        } else {
+            let actual_tok = self.peek().ty;
+            return err(
+                ET::UnexpectedToken(actual_tok, vec![expected_tok]),
+                self.loc()
+            );
+        }
+    }
+
     pub fn parse(&mut self) -> Result<ast::Ast> {
         let loc = self.loc();
 
-        self.eat(TT::Package, ET::MissingPackageDeclaration)?;
-        let pname = self.eat(TT::Id, ET::MissingPackageName)
+        self.eat_or(TT::Package, ET::MissingPackageDeclaration)?;
+        let pname = self.eat_or(TT::Id, ET::MissingPackageName)
             .and_then(copy_lexeme)?;
-        self.eat(TT::Semi, ET::UnexpectedToken)?;
+        self.eat(TT::Semi)?;
 
         let mut decls = Vec::new();
         while self.looking_at_any(&[TT::Var, TT::Func, TT::Type]) {
             decls.extend(self.parse_toplevel_decl()?);
         }
 
-        self.eat(TT::Eof, ET::UnexpectedToken)?;
+        self.eat(TT::Eof)?;
 
         let ast = ast::Ast::new(pname, decls, loc);
         return Ok(ast);
@@ -95,7 +108,7 @@ impl Parser {
             for vd in var_decls {
                 top_decls.push(ast::TopLevelDecl::VarDecl(vd));
             }
-            self.eat(TT::Semi, ET::UnexpectedToken)?;
+            self.eat(TT::Semi)?;
             return Ok(top_decls);
         }
         else if self.looking_at(TT::Type) {
@@ -104,7 +117,7 @@ impl Parser {
             for td in ty_decls {
                 top_decls.push(ast::TopLevelDecl::TypeDecl(td));
             }
-            self.eat(TT::Semi, ET::UnexpectedToken)?;
+            self.eat(TT::Semi)?;
             return Ok(top_decls);
         }
         else if self.looking_at(TT::Func) {
@@ -126,16 +139,16 @@ impl Parser {
             return Ok(construct_var_decls(vnames, ty_opt, init_vec, &var_loc));
         }
         else if self.looking_at(TT::LParen) {
-            self.eat(TT::LParen, ET::UnexpectedToken)?;
+            self.eat(TT::LParen)?;
             let mut decls = Vec::new();
             while self.looking_at(TT::Id) {
                 let (vnames, ty_opt, init_vec) = self.parse_var_spec(&var_loc)?;
                 decls.extend(
                     construct_var_decls(vnames, ty_opt, init_vec, &var_loc)
                 );
-                self.eat(TT::Semi, ET::UnexpectedToken)?;
+                self.eat(TT::Semi)?;
             }
-            self.eat(TT::RParen, ET::UnexpectedToken)?;
+            self.eat(TT::RParen)?;
             if decls.is_empty() {
                 return err(ET::InvalidVarDecl, var_loc);
             } else {
@@ -189,13 +202,13 @@ impl Parser {
             return Ok(vec![ty_decl]);
         }
         else if self.looking_at(TT::LParen) {
-            self.eat(TT::LParen, ET::UnexpectedToken);
+            self.eat(TT::LParen);
             let mut ty_decls = Vec::new();
             while self.looking_at(TT::Id) {
                 ty_decls.push(self.parse_one_type_decl()?);
-                self.eat(TT::Semi, ET::UnexpectedToken);
+                self.eat(TT::Semi);
             }
-            self.eat(TT::RParen, ET::UnexpectedToken);
+            self.eat(TT::RParen);
             if ty_decls.is_empty() {
                 return err(ET::InvalidTypeDecl, ty_loc);
             } else {
@@ -209,7 +222,7 @@ impl Parser {
 
     fn parse_one_type_decl(&mut self) -> Result<ast::TypeDecl> {
         let loc = self.loc();
-        self.eat(TT::Id, ET::UnexpectedToken);
+        self.eat(TT::Id);
         let id = copy_lexeme(self.peek_prev())?;
         let ty = self.parse_ty().or_else(|gore_err|
             err(ET::InvalidTypeDecl, gore_err.loc)
@@ -219,13 +232,13 @@ impl Parser {
 
     fn parse_func_decl(&mut self) -> Result<ast::FuncDecl> {
         let loc = self.loc();
-        self.eat(TT::Func, ET::UnexpectedToken)?;
+        self.eat(TT::Func)?;
         let func_name = self.parse_id()?;
-        self.eat(TT::LParen, ET::ExpectedParamList)?;
-        self.eat(TT::RParen, ET::UnexpectedToken)?;
-        self.eat(TT::LBrace, ET::UnexpectedToken)?;
-        self.eat(TT::RBrace, ET::UnexpectedToken)?;
-        self.eat(TT::Semi, ET::UnexpectedToken)?;
+        self.eat_or(TT::LParen, ET::ExpectedParamList)?;
+        self.eat(TT::RParen)?;
+        self.eat(TT::LBrace)?;
+        self.eat(TT::RBrace)?;
+        self.eat(TT::Semi)?;
         return Ok(ast::FuncDecl::new(
             func_name,
             vec![],
@@ -236,8 +249,7 @@ impl Parser {
     }
 
     fn parse_id(&mut self) -> Result<ast::Id> {
-        self.eat(TT::Id, ET::UnexpectedToken)
-            .and_then(copy_lexeme)
+        self.eat(TT::Id).and_then(copy_lexeme)
     }
 
     fn parse_id_list(&mut self) -> Result<Vec<ast::Id>> {
@@ -252,7 +264,7 @@ impl Parser {
 
     fn parse_ty(&mut self) -> Result<ast::Ty> {
         if self.looking_at(TT::Id) {
-            let tyname = self.eat(TT::Id, ET::Internal)
+            let tyname = self.eat(TT::Id)
                 .and_then(copy_lexeme)?;
             return Ok(ast::Ty::Name(tyname));
         } else if self.looking_at(TT::LBracket) {
@@ -260,17 +272,17 @@ impl Parser {
             if self.looking_at(TT::Int) || self.looking_at(TT::IntHex) {
                 let size = usize_lexeme(self.peek())?;
                 self.advance();
-                let _ = self.eat(TT::RBracket, ET::UnexpectedToken);
+                let _ = self.eat(TT::RBracket);
                 let sub_ty = self.parse_ty()?;
                 return Ok(ast::Ty::Array(size, Box::new(sub_ty)));
             } else {
-                let _ = self.eat(TT::RBracket, ET::UnexpectedToken);
+                let _ = self.eat(TT::RBracket);
                 let sub_ty = self.parse_ty()?;
                 return Ok(ast::Ty::Slice(Box::new(sub_ty)));
             }
         }
         else {
-            return err(ET::UnexpectedToken, self.loc());
+            return err(ET::Internal("todo: list valid tokens".to_string()), self.loc());
         }
     }
 
@@ -280,7 +292,7 @@ impl Parser {
             let id = self.parse_id()?;
             return Ok(ast::Expr::new(Box::new(ast::ExprKind::Id(id)), loc));
         } else if self.looking_at(TT::Int) {
-            let int_val = self.eat(TT::Int, ET::UnexpectedToken)
+            let int_val = self.eat(TT::Int)
                 .and_then(i64_lexeme)?;
             return Ok(ast::Expr::new(Box::new(ast::ExprKind::Int(int_val)), loc));
         } else {

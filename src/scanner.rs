@@ -182,7 +182,8 @@ impl Scanner {
             else if self.peek() == b'`'   { self.raw_string()? }
             else if self.peek() == b'\''  { self.rune()? }
             else {
-                return err(ET::UnrecognizedCharacter, self.loc());
+                return err(ET::UnrecognizedCharacter(self.peek() as char),
+                           self.loc());
             }
         };
         self.last_tok = tok.ty;
@@ -340,7 +341,7 @@ impl Scanner {
             self.advance();
         }
         if digits.is_empty() {
-            return err(ET::MalformedHexLiteral, start_loc);
+            return err(ET::EmptyHexLiteral, start_loc);
         } else {
             return Ok(Token::new(TT::IntHex, start_loc, Some(digits)));
         }
@@ -395,7 +396,7 @@ impl Scanner {
                     b'v' => { 0x0b }
                     b'\\' => { 0x5c }
                     b'"' => { 0x22 }
-                    _ => { return err(ET::InvalidEscape, self.loc()); }
+                    b => { return err(ET::InvalidEscape(b as char), self.loc()); }
                 };
                 content.push(code as char);
                 self.advance();
@@ -451,7 +452,7 @@ impl Scanner {
                 b'v' => { 0x0b }
                 b'\\' => { 0x5c }
                 b'\'' => { 0x27 }
-                _ => { return err(ET::InvalidEscape, self.loc()); }
+                b => { return err(ET::InvalidEscape(b as char), self.loc()); }
             };
             content.push(code as char);
             self.advance();
