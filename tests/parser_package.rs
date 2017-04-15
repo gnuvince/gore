@@ -8,8 +8,8 @@ use common::parse_error;
 
 #[test]
 fn test_package() {
-    assert_eq!(Some(ET::MissingPackageDeclaration), parse_error(b""));
-    assert_eq!(Some(ET::MissingPackageDeclaration), parse_error(b"main"));
-    assert_eq!(Some(ET::MissingPackageName), parse_error(b"package"));
-    assert_eq!(None, parse_error(b"package main"));
+    assert!(parse_error(b"").is_err());
+    assert!(parse_error(b"main").is_err());
+    assert!(parse_error(b"package").is_err());
+    assert!(parse_error(b"package main").is_ok());
 }

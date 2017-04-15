@@ -10,3 +10,4 @@ name = "gore"
 path = "src/main.rs"
 
 [dependencies]
+matches = "0.1"

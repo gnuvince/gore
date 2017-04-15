@@ -1,17 +1,26 @@
 extern crate gore;
+#[macro_use] extern crate matches;
 
-use gore::token::Token;
 use gore::token::TokenType as TT;
 use gore::error::GoreErrorType as ET;
 use gore::scanner::Scanner;
 
-fn assert_tok(expected_ty: TT, src: &[u8]) {
-    let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
-    let mut scanner = Scanner::new("-".to_string(), src_vec);
-    let tok_opt = scanner.next();
-    let tok_ty = tok_opt.map(|tok| tok.ty).unwrap_or(TT::Eof);
-    assert_eq!(tok_ty, expected_ty);
+fn tok(src: &[u8]) -> Result<TT, ET> {
+    let mut scanner = Scanner::new("-".to_string(), src.to_vec());
+    let tok_res = scanner.next();
+    tok_res
+        .map(|tok| tok.ty)
+        .map_err(|err| err.ty)
 }
+
+fn lexeme(src: &[u8]) -> Result<Option<String>, ET> {
+    let mut scanner = Scanner::new("-".to_string(), src.to_vec());
+    let tok_opt = scanner.next();
+    tok_opt
+        .map(|tok| tok.lexeme)
+        .map_err(|err| err.ty)
+}
+
 
 fn assert_toks(expected_tys: &[TT], src: &[u8]) {
     let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
@@ -34,253 +43,226 @@ fn assert_toks(expected_tys: &[TT], src: &[u8]) {
     );
 }
 
-fn assert_lexeme(expected: &str, src: &[u8]) {
-    let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
-    let mut scanner = Scanner::new("-".to_string(), src_vec);
-    let tok_opt = scanner.next();
-    match tok_opt {
-        Ok(Token { lexeme: Some(actual), .. }) => {
-            assert_eq!(expected, actual);
-        }
-        Ok(_) => { assert_eq!("assert_id", "got token with no lexeme"); }
-        Err(_) => { assert_eq!("assert_id", "got an error"); }
-    }
-}
-
-fn assert_err(expected_err: ET, src: &[u8]) {
-    let src_vec: Vec<u8> = src.iter().map(|b| *b).collect();
-    let mut scanner = Scanner::new("-".to_string(), src_vec);
-    let tok_opt = scanner.next();
-    match tok_opt {
-        Ok(_) => { assert_eq!("assert_eq", "got ok"); }
-        Err(e) => { assert_eq!(expected_err, e.ty); }
-    }
-}
-
 #[test]
 fn test_invalid_characters() {
-    assert_err(ET::UnrecognizedCharacter, b"#");
-    assert_err(ET::UnrecognizedCharacter, b"$");
-    assert_err(ET::UnrecognizedCharacter, b"?");
-    assert_err(ET::UnrecognizedCharacter, b"~");
+    assert!(matches!(tok(b"#"), Err(ET::UnrecognizedCharacter(_))));
+    assert!(matches!(tok(b"$"), Err(ET::UnrecognizedCharacter(_))));
+    assert!(matches!(tok(b"?"), Err(ET::UnrecognizedCharacter(_))));
+    assert!(matches!(tok(b"~"), Err(ET::UnrecognizedCharacter(_))));
 }
 
 #[test]
 fn test_ops_and_punc() {
-    assert_tok(TT::ColonEq, b":=");
-    assert_tok(TT::PlusEq, b"+=");
-    assert_tok(TT::Incr, b"++");
-    assert_tok(TT::Plus, b"+");
-    assert_tok(TT::MinusEq, b"-=");
-    assert_tok(TT::Decr, b"--");
-    assert_tok(TT::Minus, b"-");
-    assert_tok(TT::StarEq, b"*=");
-    assert_tok(TT::Star, b"*");
-    assert_tok(TT::SlashEq, b"/=");
-    assert_tok(TT::Slash, b"/");
-    assert_tok(TT::PercentEq, b"%=");
-    assert_tok(TT::Percent, b"%");
-    assert_tok(TT::Bitnot, b"^");
-    assert_tok(TT::BitClear, b"&^");
-    assert_tok(TT::BitandEq, b"&=");
-    assert_tok(TT::Bitand, b"&");
-    assert_tok(TT::BitorEq, b"|=");
-    assert_tok(TT::Bitor, b"|");
-    assert_tok(TT::LeftShiftEq, b"<<=");
-    assert_tok(TT::LeftShift, b"<<");
-    assert_tok(TT::RightShiftEq, b">>=");
-    assert_tok(TT::RightShift, b">>");
-    assert_tok(TT::And, b"&&");
-    assert_tok(TT::Or, b"||");
-    assert_tok(TT::Not, b"!");
-    assert_tok(TT::Eq, b"==");
-    assert_tok(TT::Ne, b"!=");
-    assert_tok(TT::Le, b"<=");
-    assert_tok(TT::Lt, b"<");
-    assert_tok(TT::Ge, b">=");
-    assert_tok(TT::Gt, b">");
-    assert_tok(TT::LParen, b"(");
-    assert_tok(TT::RParen, b")");
-    assert_tok(TT::LBracket, b"[");
-    assert_tok(TT::RBracket, b"]");
-    assert_tok(TT::LBrace, b"{");
-    assert_tok(TT::RBrace, b"}");
-    assert_tok(TT::Comma, b",");
-    assert_tok(TT::Dot, b".");
-    assert_tok(TT::Semi, b";");
-    assert_tok(TT::Colon, b":");
+    assert!(matches!(tok(b":=")  , Ok(TT::ColonEq)));
+    assert!(matches!(tok(b"+=")  , Ok(TT::PlusEq)));
+    assert!(matches!(tok(b"++")  , Ok(TT::Incr)));
+    assert!(matches!(tok(b"+")   , Ok(TT::Plus)));
+    assert!(matches!(tok(b"-=")  , Ok(TT::MinusEq)));
+    assert!(matches!(tok(b"--")  , Ok(TT::Decr)));
+    assert!(matches!(tok(b"-")   , Ok(TT::Minus)));
+    assert!(matches!(tok(b"*=")  , Ok(TT::StarEq)));
+    assert!(matches!(tok(b"*")   , Ok(TT::Star)));
+    assert!(matches!(tok(b"/=")  , Ok(TT::SlashEq)));
+    assert!(matches!(tok(b"/")   , Ok(TT::Slash)));
+    assert!(matches!(tok(b"%=")  , Ok(TT::PercentEq)));
+    assert!(matches!(tok(b"%")   , Ok(TT::Percent)));
+    assert!(matches!(tok(b"^")   , Ok(TT::Bitnot)));
+    assert!(matches!(tok(b"&^")  , Ok(TT::BitClear)));
+    assert!(matches!(tok(b"&=")  , Ok(TT::BitandEq)));
+    assert!(matches!(tok(b"&")   , Ok(TT::Bitand)));
+    assert!(matches!(tok(b"|=")  , Ok(TT::BitorEq)));
+    assert!(matches!(tok(b"|")   , Ok(TT::Bitor)));
+    assert!(matches!(tok(b"<<=") , Ok(TT::LeftShiftEq)));
+    assert!(matches!(tok(b"<<")  , Ok(TT::LeftShift)));
+    assert!(matches!(tok(b">>=") , Ok(TT::RightShiftEq)));
+    assert!(matches!(tok(b">>")  , Ok(TT::RightShift)));
+    assert!(matches!(tok(b"&&")  , Ok(TT::And)));
+    assert!(matches!(tok(b"||")  , Ok(TT::Or)));
+    assert!(matches!(tok(b"!")   , Ok(TT::Not)));
+    assert!(matches!(tok(b"==")  , Ok(TT::Eq)));
+    assert!(matches!(tok(b"!=")  , Ok(TT::Ne)));
+    assert!(matches!(tok(b"<=")  , Ok(TT::Le)));
+    assert!(matches!(tok(b"<")   , Ok(TT::Lt)));
+    assert!(matches!(tok(b">=")  , Ok(TT::Ge)));
+    assert!(matches!(tok(b">")   , Ok(TT::Gt)));
+    assert!(matches!(tok(b"(")   , Ok(TT::LParen)));
+    assert!(matches!(tok(b")")   , Ok(TT::RParen)));
+    assert!(matches!(tok(b"[")   , Ok(TT::LBracket)));
+    assert!(matches!(tok(b"]")   , Ok(TT::RBracket)));
+    assert!(matches!(tok(b"{")   , Ok(TT::LBrace)));
+    assert!(matches!(tok(b"}")   , Ok(TT::RBrace)));
+    assert!(matches!(tok(b",")   , Ok(TT::Comma)));
+    assert!(matches!(tok(b".")   , Ok(TT::Dot)));
+    assert!(matches!(tok(b";")   , Ok(TT::Semi)));
+    assert!(matches!(tok(b":")   , Ok(TT::Colon)));
 }
 
 #[test]
 fn test_skip_whitespace_and_comments() {
-    assert_tok(TT::Dot, b".");
-    assert_tok(TT::Dot, b" .");
-    assert_tok(TT::Dot, b"\t.");
-    assert_tok(TT::Dot, b"\n.");
-    assert_tok(TT::Dot, b"// comment\n.");
-    assert_tok(TT::Dot, b"// comment 1\n  // comment 2\n\n.");
-    assert_tok(TT::Dot, b"/* comment \n comment */   .");
-    assert_tok(TT::Eof, b"// only a line comment\n");
-    assert_tok(TT::Eof, b"// only a line comment");
-    assert_err(ET::TrailingBlockComment, b"/* unfinished");
+    assert!(matches!(tok(b"."), Ok(TT::Dot)));
+    assert!(matches!(tok(b" ."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"\t."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"\n."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"// comment\n."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"// comment 1\n  // comment 2\n\n."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"/* comment \n comment */   ."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"// only a line comment\n"), Ok(TT::Eof)));
+    assert!(matches!(tok(b"// only a line comment"), Ok(TT::Eof)));
+    assert!(matches!(tok(b"/* unfinished business"), Err(ET::TrailingBlockComment)));
 }
 
 #[test]
 fn test_keywords() {
-    assert_tok(TT::Break, b"break");
-    assert_tok(TT::Case, b"case");
-    assert_tok(TT::Continue, b"continue");
-    assert_tok(TT::Default, b"default");
-    assert_tok(TT::Else, b"else");
-    assert_tok(TT::For, b"for");
-    assert_tok(TT::Func, b"func");
-    assert_tok(TT::If, b"if");
-    assert_tok(TT::Package, b"package");
-    assert_tok(TT::Return, b"return");
-    assert_tok(TT::Struct, b"struct");
-    assert_tok(TT::Switch, b"switch");
-    assert_tok(TT::Type, b"type");
-    assert_tok(TT::Var, b"var");
-    assert_tok(TT::Append, b"append");
-    assert_tok(TT::Print, b"print");
-    assert_tok(TT::Println, b"println");
+    assert!(matches!(tok(b"break"), Ok(TT::Break)));
+    assert!(matches!(tok(b"case"), Ok(TT::Case)));
+    assert!(matches!(tok(b"continue"), Ok(TT::Continue)));
+    assert!(matches!(tok(b"default"), Ok(TT::Default)));
+    assert!(matches!(tok(b"else"), Ok(TT::Else)));
+    assert!(matches!(tok(b"for"), Ok(TT::For)));
+    assert!(matches!(tok(b"func"), Ok(TT::Func)));
+    assert!(matches!(tok(b"if"), Ok(TT::If)));
+    assert!(matches!(tok(b"package"), Ok(TT::Package)));
+    assert!(matches!(tok(b"return"), Ok(TT::Return)));
+    assert!(matches!(tok(b"struct"), Ok(TT::Struct)));
+    assert!(matches!(tok(b"switch"), Ok(TT::Switch)));
+    assert!(matches!(tok(b"type"), Ok(TT::Type)));
+    assert!(matches!(tok(b"var"), Ok(TT::Var)));
+    assert!(matches!(tok(b"append"), Ok(TT::Append)));
+    assert!(matches!(tok(b"print"), Ok(TT::Print)));
+    assert!(matches!(tok(b"println"), Ok(TT::Println)));
 }
 
 #[test]
 fn test_ids() {
-    assert_tok(TT::Id, b"foo");
-    assert_tok(TT::Id, b"Foo");
-    assert_tok(TT::Id, b"_foo");
-    assert_tok(TT::Id, b"_1");
-    assert_tok(TT::Id, b"__LINE__");
-    assert_tok(TT::Blank, b"_");
+    assert!(matches!(tok(b"foo"), Ok(TT::Id)));
+    assert!(matches!(tok(b"Foo"), Ok(TT::Id)));
+    assert!(matches!(tok(b"_foo"), Ok(TT::Id)));
+    assert!(matches!(tok(b"_1"), Ok(TT::Id)));
+    assert!(matches!(tok(b"__LINE__"), Ok(TT::Id)));
+    assert!(matches!(tok(b"_"), Ok(TT::Blank)));
 
-    assert_lexeme("foo", b"foo");
-    assert_lexeme("Foo", b"Foo");
-    assert_lexeme("_foo", b"_foo");
-    assert_lexeme("_1", b"_1");
-    assert_lexeme("__LINE__", b"__LINE__");
+    assert!(matches!(lexeme(b"foo"), Ok(Some(ref s)) if s == "foo"));
+    assert!(matches!(lexeme(b"_"), Ok(None)));
 }
 
 #[test]
 fn test_hex() {
-    assert_tok(TT::IntHex, b"0x0");
-    assert_tok(TT::IntHex, b"0x1");
-    assert_tok(TT::IntHex, b"0x2");
-    assert_tok(TT::IntHex, b"0x3");
-    assert_tok(TT::IntHex, b"0x4");
-    assert_tok(TT::IntHex, b"0x5");
-    assert_tok(TT::IntHex, b"0x6");
-    assert_tok(TT::IntHex, b"0x7");
-    assert_tok(TT::IntHex, b"0x8");
-    assert_tok(TT::IntHex, b"0x9");
-    assert_tok(TT::IntHex, b"0xa");
-    assert_tok(TT::IntHex, b"0xb");
-    assert_tok(TT::IntHex, b"0xc");
-    assert_tok(TT::IntHex, b"0xd");
-    assert_tok(TT::IntHex, b"0xe");
-    assert_tok(TT::IntHex, b"0xf");
-    assert_tok(TT::IntHex, b"0XA");
-    assert_tok(TT::IntHex, b"0XB");
-    assert_tok(TT::IntHex, b"0XC");
-    assert_tok(TT::IntHex, b"0XD");
-    assert_tok(TT::IntHex, b"0XE");
-    assert_tok(TT::IntHex, b"0XF");
+    assert!(matches!(tok(b"0x0"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x1"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x2"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x3"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x4"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x5"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x6"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x7"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x8"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0x9"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xa"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xb"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xc"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xd"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xe"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0xf"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XA"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XB"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XC"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XD"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XE"), Ok(TT::IntHex)));
+    assert!(matches!(tok(b"0XF"), Ok(TT::IntHex)));
 
-    assert_lexeme("0", b"0x0");
-    assert_lexeme("1", b"0x1");
-    assert_lexeme("2", b"0x2");
-    assert_lexeme("3", b"0x3");
-    assert_lexeme("4", b"0x4");
-    assert_lexeme("5", b"0x5");
-    assert_lexeme("6", b"0x6");
-    assert_lexeme("7", b"0x7");
-    assert_lexeme("8", b"0x8");
-    assert_lexeme("9", b"0x9");
-    assert_lexeme("a", b"0xa");
-    assert_lexeme("b", b"0xb");
-    assert_lexeme("c", b"0xc");
-    assert_lexeme("d", b"0xd");
-    assert_lexeme("e", b"0xe");
-    assert_lexeme("f", b"0xf");
-    assert_lexeme("A", b"0XA");
-    assert_lexeme("B", b"0XB");
-    assert_lexeme("C", b"0XC");
-    assert_lexeme("D", b"0XD");
-    assert_lexeme("E", b"0XE");
-    assert_lexeme("F", b"0XF");
+    assert!(matches!(lexeme(b"0x0"), Ok(Some(ref s)) if s == "0"));
+    assert!(matches!(lexeme(b"0x1"), Ok(Some(ref s)) if s == "1"));
+    assert!(matches!(lexeme(b"0x2"), Ok(Some(ref s)) if s == "2"));
+    assert!(matches!(lexeme(b"0x3"), Ok(Some(ref s)) if s == "3"));
+    assert!(matches!(lexeme(b"0x4"), Ok(Some(ref s)) if s == "4"));
+    assert!(matches!(lexeme(b"0x5"), Ok(Some(ref s)) if s == "5"));
+    assert!(matches!(lexeme(b"0x6"), Ok(Some(ref s)) if s == "6"));
+    assert!(matches!(lexeme(b"0x7"), Ok(Some(ref s)) if s == "7"));
+    assert!(matches!(lexeme(b"0x8"), Ok(Some(ref s)) if s == "8"));
+    assert!(matches!(lexeme(b"0x9"), Ok(Some(ref s)) if s == "9"));
+    assert!(matches!(lexeme(b"0xa"), Ok(Some(ref s)) if s == "a"));
+    assert!(matches!(lexeme(b"0xb"), Ok(Some(ref s)) if s == "b"));
+    assert!(matches!(lexeme(b"0xc"), Ok(Some(ref s)) if s == "c"));
+    assert!(matches!(lexeme(b"0xd"), Ok(Some(ref s)) if s == "d"));
+    assert!(matches!(lexeme(b"0xe"), Ok(Some(ref s)) if s == "e"));
+    assert!(matches!(lexeme(b"0xf"), Ok(Some(ref s)) if s == "f"));
+    assert!(matches!(lexeme(b"0XA"), Ok(Some(ref s)) if s == "A"));
+    assert!(matches!(lexeme(b"0XB"), Ok(Some(ref s)) if s == "B"));
+    assert!(matches!(lexeme(b"0XC"), Ok(Some(ref s)) if s == "C"));
+    assert!(matches!(lexeme(b"0XD"), Ok(Some(ref s)) if s == "D"));
+    assert!(matches!(lexeme(b"0XE"), Ok(Some(ref s)) if s == "E"));
+    assert!(matches!(lexeme(b"0XF"), Ok(Some(ref s)) if s == "F"));
 
-    assert_err(ET::MalformedHexLiteral, b"0x");
-    assert_err(ET::MalformedHexLiteral, b"0X");
+    assert!(matches!(tok(b"0x"), Err(ET::EmptyHexLiteral)));
+    assert!(matches!(tok(b"0X"), Err(ET::EmptyHexLiteral)));
 }
 
 #[test]
 fn test_octal() {
-    assert_tok(TT::Int, b"0");
-    assert_tok(TT::Int, b"01");
-    assert_tok(TT::Int, b"02");
-    assert_tok(TT::Int, b"03");
-    assert_tok(TT::Int, b"04");
-    assert_tok(TT::Int, b"05");
-    assert_tok(TT::Int, b"06");
-    assert_tok(TT::Int, b"07");
-    assert_tok(TT::Int, b"0377");
+    assert!(matches!(tok(b"0"),  Ok(TT::Int)));
+    assert!(matches!(tok(b"01"), Ok(TT::Int)));
+    assert!(matches!(tok(b"02"), Ok(TT::Int)));
+    assert!(matches!(tok(b"03"), Ok(TT::Int)));
+    assert!(matches!(tok(b"04"), Ok(TT::Int)));
+    assert!(matches!(tok(b"05"), Ok(TT::Int)));
+    assert!(matches!(tok(b"06"), Ok(TT::Int)));
+    assert!(matches!(tok(b"07"), Ok(TT::Int)));
+    assert!(matches!(tok(b"0377"), Ok(TT::Int)));
 
-    assert_lexeme("0", b"0");
-    assert_lexeme("01", b"01");
-    assert_lexeme("02", b"02");
-    assert_lexeme("03", b"03");
-    assert_lexeme("04", b"04");
-    assert_lexeme("05", b"05");
-    assert_lexeme("06", b"06");
-    assert_lexeme("07", b"07");
-    assert_lexeme("0377", b"0377");
+    assert!(matches!(lexeme(b"0"), Ok(Some(ref s)) if s == "0"));
+    assert!(matches!(lexeme(b"01"), Ok(Some(ref s)) if s == "01"));
+    assert!(matches!(lexeme(b"02"), Ok(Some(ref s)) if s == "02"));
+    assert!(matches!(lexeme(b"03"), Ok(Some(ref s)) if s == "03"));
+    assert!(matches!(lexeme(b"04"), Ok(Some(ref s)) if s == "04"));
+    assert!(matches!(lexeme(b"05"), Ok(Some(ref s)) if s == "05"));
+    assert!(matches!(lexeme(b"06"), Ok(Some(ref s)) if s == "06"));
+    assert!(matches!(lexeme(b"07"), Ok(Some(ref s)) if s == "07"));
+    assert!(matches!(lexeme(b"0377"), Ok(Some(ref s)) if s == "0377"));
 }
 
 #[test]
 fn test_decimal() {
-    assert_tok(TT::Int, b"0");
-    assert_tok(TT::Int, b"1");
-    assert_tok(TT::Int, b"2");
-    assert_tok(TT::Int, b"3");
-    assert_tok(TT::Int, b"4");
-    assert_tok(TT::Int, b"5");
-    assert_tok(TT::Int, b"6");
-    assert_tok(TT::Int, b"7");
-    assert_tok(TT::Int, b"8");
-    assert_tok(TT::Int, b"9");
-    assert_tok(TT::Int, b"127");
+    assert!(matches!(tok(b"0"), Ok(TT::Int)));
+    assert!(matches!(tok(b"1"), Ok(TT::Int)));
+    assert!(matches!(tok(b"2"), Ok(TT::Int)));
+    assert!(matches!(tok(b"3"), Ok(TT::Int)));
+    assert!(matches!(tok(b"4"), Ok(TT::Int)));
+    assert!(matches!(tok(b"5"), Ok(TT::Int)));
+    assert!(matches!(tok(b"6"), Ok(TT::Int)));
+    assert!(matches!(tok(b"7"), Ok(TT::Int)));
+    assert!(matches!(tok(b"8"), Ok(TT::Int)));
+    assert!(matches!(tok(b"9"), Ok(TT::Int)));
+    assert!(matches!(tok(b"127"), Ok(TT::Int)));
 
-    assert_lexeme("0", b"0");
-    assert_lexeme("1", b"1");
-    assert_lexeme("2", b"2");
-    assert_lexeme("3", b"3");
-    assert_lexeme("4", b"4");
-    assert_lexeme("5", b"5");
-    assert_lexeme("6", b"6");
-    assert_lexeme("7", b"7");
-    assert_lexeme("8", b"8");
-    assert_lexeme("9", b"9");
-    assert_lexeme("127", b"127");
+    assert!(matches!(lexeme(b"0"), Ok(Some(ref s)) if s == "0"));
+    assert!(matches!(lexeme(b"1"), Ok(Some(ref s)) if s == "1"));
+    assert!(matches!(lexeme(b"2"), Ok(Some(ref s)) if s == "2"));
+    assert!(matches!(lexeme(b"3"), Ok(Some(ref s)) if s == "3"));
+    assert!(matches!(lexeme(b"4"), Ok(Some(ref s)) if s == "4"));
+    assert!(matches!(lexeme(b"5"), Ok(Some(ref s)) if s == "5"));
+    assert!(matches!(lexeme(b"6"), Ok(Some(ref s)) if s == "6"));
+    assert!(matches!(lexeme(b"7"), Ok(Some(ref s)) if s == "7"));
+    assert!(matches!(lexeme(b"8"), Ok(Some(ref s)) if s == "8"));
+    assert!(matches!(lexeme(b"9"), Ok(Some(ref s)) if s == "9"));
+    assert!(matches!(lexeme(b"127"), Ok(Some(ref s)) if s == "127"));
 }
 
 #[test]
 fn test_float_literal() {
-    assert_tok(TT::Dot, b".");
-    assert_tok(TT::Float, b"3.");
-    assert_tok(TT::Float, b".3");
-    assert_tok(TT::Float, b"2.3");
-    assert_tok(TT::Float, b"0.3");
+    assert!(matches!(tok(b"."), Ok(TT::Dot)));
+    assert!(matches!(tok(b"3."), Ok(TT::Float)));
+    assert!(matches!(tok(b".3"), Ok(TT::Float)));
+    assert!(matches!(tok(b"2.3"), Ok(TT::Float)));
+    assert!(matches!(tok(b"0.3"), Ok(TT::Float)));
 
-    assert_lexeme("3.", b"3.");
-    assert_lexeme(".3", b".3");
-    assert_lexeme("2.3", b"2.3");
-    assert_lexeme("0.3", b"0.3");
+    assert!(matches!(lexeme(b"3."), Ok(Some(ref s)) if s == "3."));
+    assert!(matches!(lexeme(b".3"), Ok(Some(ref s)) if s == ".3"));
+    assert!(matches!(lexeme(b"2.3"), Ok(Some(ref s)) if s == "2.3"));
+    assert!(matches!(lexeme(b"0.3"), Ok(Some(ref s)) if s == "0.3"));
 }
 
 #[test]
 fn test_semi_insertion() {
-
     assert_toks(&[TT::Id, TT::Semi], b"x");
     assert_toks(&[TT::Id, TT::Semi], b"x\n");
     assert_toks(&[TT::Id, TT::Semi], b"x\n\n\n");
@@ -461,43 +443,43 @@ fn test_no_semi_insertion() {
 
 #[test]
 fn test_interpreted_string() {
-    assert_tok(TT::String, b"\"\"");
-    assert_tok(TT::String, b"\"hello\"");
-    assert_tok(TT::String, b"\" \\a \\b \\f \\n \\r \\t \\v \\\\ \\\" \"");
+    assert!(matches!(tok(b"\"\""), Ok(TT::String)));
+    assert!(matches!(tok(b"\"hello\""), Ok(TT::String)));
+    assert!(matches!(tok(b"\" \\a \\b \\f \\n \\r \\t \\v \\\\ \\\" \""), Ok(TT::String)));
 
-    assert_err(ET::TrailingString, b"\"hello");
-    assert_err(ET::InvalidEscape, b"\"\\p\"");
-    assert_err(ET::NewlineInString, b" \" \n \" ");
+    assert!(matches!(tok(b"\"hello"), Err(ET::TrailingString)));
+    assert!(matches!(tok(b"\"\\p\""), Err(ET::InvalidEscape(_))));
+    assert!(matches!(tok(b" \" \n \" "), Err(ET::NewlineInString)));
 }
 
 #[test]
 fn test_raw_string() {
-    assert_tok(TT::String, b"``");
-    assert_tok(TT::String, b"`hello`");
-    assert_tok(TT::String, b"`hello\nworld`");
+    assert!(matches!(tok(b"``"), Ok(TT::String)));
+    assert!(matches!(tok(b"`hello`"), Ok(TT::String)));;
+    assert!(matches!(tok(b"`hello\nworld`"), Ok(TT::String)));;
 
-    assert_lexeme("", b"`\\r`");
+    assert!(matches!(lexeme(b"`\\r`"), Ok(Some(ref s)) if s == ""));
 
-    assert_err(ET::TrailingString, b"`hello");
+    assert!(matches!(tok(b"`hello"), Err(ET::TrailingString)));
 }
 
 #[test]
 fn test_rune() {
-    assert_tok(TT::Rune, b"'a'");
-    assert_tok(TT::Rune, b"'\\a'");
-    assert_tok(TT::Rune, b"'\\b'");
-    assert_tok(TT::Rune, b"'\\f'");
-    assert_tok(TT::Rune, b"'\\n'");
-    assert_tok(TT::Rune, b"'\\r'");
-    assert_tok(TT::Rune, b"'\\t'");
-    assert_tok(TT::Rune, b"'\\v'");
-    assert_tok(TT::Rune, b"'\\\\'");
-    assert_tok(TT::Rune, b"'\\''");
+    assert!(matches!(tok(b"'a'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\a'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\b'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\f'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\n'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\r'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\t'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\v'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\\\'"), Ok(TT::Rune)));
+    assert!(matches!(tok(b"'\\''"), Ok(TT::Rune)));
 
-    assert_err(ET::EmptyRune, b"''");
-    assert_err(ET::NewlineInRune, b"'\n'");
-    assert_err(ET::TrailingRune, b"'");
-    assert_err(ET::TrailingRune, b"'x");
-    assert_err(ET::InvalidEscape, b"'\\p'");
-    assert_err(ET::TrailingRune, b"'xx'");
+    assert!(matches!(tok(b"''"), Err(ET::EmptyRune)));
+    assert!(matches!(tok(b"'\n'"), Err(ET::NewlineInRune)));
+    assert!(matches!(tok(b"'"), Err(ET::TrailingRune)));
+    assert!(matches!(tok(b"'x"), Err(ET::TrailingRune)));
+    assert!(matches!(tok(b"'\\p'"), Err(ET::InvalidEscape(_))));
+    assert!(matches!(tok(b"'xx'"), Err(ET::TrailingRune)));
 }
