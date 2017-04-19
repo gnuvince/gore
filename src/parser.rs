@@ -7,14 +7,18 @@ use untyped_ast as ast;
 
 pub struct Parser {
     tokens: Vec<Token>,
-    pos: usize
+    pos: usize,
+    in_loop: bool,  // to determine if continue/break statement is valid
+    in_switch: bool // to determine if break statement is valid
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Parser {
         Parser {
             tokens: tokens,
-            pos: 0
+            pos: 0,
+            in_loop: false,
+            in_switch: false
         }
     }
 
@@ -60,19 +64,19 @@ impl Parser {
     }
 
 
-    fn eat_or(&mut self, tok_ty: TT, err_ty: ET) -> Result<&Token> {
+    fn eat_or(&mut self, tok_ty: TT, err_ty: ET) -> Result<()> {
         if self.looking_at(tok_ty) {
             self.advance();
-            return Ok(self.peek_prev());
+            return Ok(());
         } else {
             return err(err_ty, self.loc());
         }
     }
 
-    fn eat(&mut self, expected_tok: TT) -> Result<&Token> {
+    fn eat(&mut self, expected_tok: TT) -> Result<()> {
         if self.looking_at(expected_tok) {
             self.advance();
-            return Ok(self.peek_prev());
+            return Ok(());
         } else {
             let actual_tok = self.peek().ty;
             return err(
@@ -86,8 +90,8 @@ impl Parser {
         let loc = self.loc();
 
         self.eat_or(TT::Package, ET::MissingPackageDeclaration)?;
-        let pname = self.eat_or(TT::Id, ET::MissingPackageName)
-            .and_then(copy_lexeme)?;
+        self.eat_or(TT::Id, ET::MissingPackageName)?;
+        let pname = copy_lexeme(self.peek_prev())?;
         self.eat(TT::Semi)?;
 
         let mut decls = Vec::new();
@@ -103,6 +107,9 @@ impl Parser {
 
     fn parse_toplevel_decl(&mut self) -> Result<Vec<ast::TopLevelDecl>> {
         if self.looking_at(TT::Var) {
+            // One var declaration can have multiple variables
+            // (e.g., var x, y int), and so we return a vector
+            // of declarations (e.g., [x:int, y:int]).
             let var_decls = self.parse_var_decl()?;
             let mut top_decls = Vec::new();
             for vd in var_decls {
@@ -202,13 +209,13 @@ impl Parser {
             return Ok(vec![ty_decl]);
         }
         else if self.looking_at(TT::LParen) {
-            self.eat(TT::LParen);
+            self.advance();
             let mut ty_decls = Vec::new();
             while self.looking_at(TT::Id) {
                 ty_decls.push(self.parse_one_type_decl()?);
-                self.eat(TT::Semi);
+                self.eat(TT::Semi)?;
             }
-            self.eat(TT::RParen);
+            self.eat(TT::RParen)?;
             if ty_decls.is_empty() {
                 return err(ET::InvalidTypeDecl, ty_loc);
             } else {
@@ -222,7 +229,7 @@ impl Parser {
 
     fn parse_one_type_decl(&mut self) -> Result<ast::TypeDecl> {
         let loc = self.loc();
-        self.eat(TT::Id);
+        self.eat(TT::Id)?;
         let id = copy_lexeme(self.peek_prev())?;
         let ty = self.parse_ty().or_else(|gore_err|
             err(ET::InvalidTypeDecl, gore_err.loc)
@@ -235,21 +242,48 @@ impl Parser {
         self.eat(TT::Func)?;
         let func_name = self.parse_id()?;
         self.eat_or(TT::LParen, ET::ExpectedParamList)?;
+        let params = self.parse_param_list()?;
         self.eat(TT::RParen)?;
+        let ret_ty =
+            if self.looking_at(TT::LBrace) {
+                ast::Ty::Void
+            } else {
+                self.parse_ty()?
+            };
         self.eat(TT::LBrace)?;
+        let stmts = self.parse_stmt_list()?;
         self.eat(TT::RBrace)?;
         self.eat(TT::Semi)?;
         return Ok(ast::FuncDecl::new(
             func_name,
-            vec![],
-            ast::Ty::Void,
-            vec![],
+            params,
+            ret_ty,
+            stmts,
             loc
         ));
     }
 
+    fn parse_param_list(&mut self) -> Result<Vec<ast::Param>> {
+        let mut is_first = true;
+        let mut params = Vec::new();
+
+        while !self.looking_at(TT::RParen) {
+            if !is_first {
+                self.eat(TT::Comma)?;
+            }
+            let param_names = self.parse_id_list()?;
+            let ty = self.parse_ty()?;
+            for param_name in param_names {
+                params.push(ast::Param::new(param_name, ty.clone()));
+            }
+            is_first = false;
+        }
+        return Ok(params);
+    }
+
     fn parse_id(&mut self) -> Result<ast::Id> {
-        self.eat(TT::Id).and_then(copy_lexeme)
+        self.eat(TT::Id)?;
+        return copy_lexeme(self.peek_prev());
     }
 
     fn parse_id_list(&mut self) -> Result<Vec<ast::Id>> {
@@ -264,19 +298,19 @@ impl Parser {
 
     fn parse_ty(&mut self) -> Result<ast::Ty> {
         if self.looking_at(TT::Id) {
-            let tyname = self.eat(TT::Id)
-                .and_then(copy_lexeme)?;
+            self.eat(TT::Id)?;
+            let tyname = copy_lexeme(self.peek_prev())?;
             return Ok(ast::Ty::Name(tyname));
         } else if self.looking_at(TT::LBracket) {
             self.advance();
             if self.looking_at(TT::Int) || self.looking_at(TT::IntHex) {
                 let size = usize_lexeme(self.peek())?;
                 self.advance();
-                let _ = self.eat(TT::RBracket);
+                self.eat(TT::RBracket)?;
                 let sub_ty = self.parse_ty()?;
                 return Ok(ast::Ty::Array(size, Box::new(sub_ty)));
             } else {
-                let _ = self.eat(TT::RBracket);
+                self.eat(TT::RBracket)?;
                 let sub_ty = self.parse_ty()?;
                 return Ok(ast::Ty::Slice(Box::new(sub_ty)));
             }
@@ -292,8 +326,8 @@ impl Parser {
             let id = self.parse_id()?;
             return Ok(ast::Expr::new(Box::new(ast::ExprKind::Id(id)), loc));
         } else if self.looking_at(TT::Int) {
-            let int_val = self.eat(TT::Int)
-                .and_then(i64_lexeme)?;
+            self.advance();
+            let int_val = i64_lexeme(self.peek_prev())?;
             return Ok(ast::Expr::new(Box::new(ast::ExprKind::Int(int_val)), loc));
         } else {
             return err(ET::ExpectedExpression, self.loc());
@@ -308,6 +342,55 @@ impl Parser {
             exprs.push(self.parse_expr()?);
         }
         return Ok(exprs);
+    }
+
+    fn parse_stmt_list(&mut self) -> Result<Vec<ast::Stmt>> {
+        let mut stmts = Vec::new();
+        while self.looking_at_any(&[TT::Print, TT::Println]) {
+            stmts.push(self.parse_stmt()?);
+            self.eat(TT::Semi)?;
+        }
+        return Ok(stmts);
+    }
+
+    fn parse_stmt(&mut self) -> Result<ast::Stmt> {
+        let loc = self.loc();
+        if self.looking_at_any(&[TT::Print, TT::Println]) {
+            let newline = self.looking_at(TT::Println);
+            self.advance(); // skip print/println
+            self.eat(TT::LParen)?;
+            let exprs = self.parse_expr_list()?;
+            self.eat(TT::RParen)?;
+            return Ok(ast::Stmt {
+                loc: loc,
+                kind: Box::new(ast::StmtKind::Print {
+                    exprs: exprs,
+                    newline: newline
+                }),
+            });
+        } else if self.looking_at(TT::Break) {
+            if self.in_switch || self.in_loop {
+                self.advance();
+                return Ok(ast::Stmt {
+                    loc: loc,
+                    kind: Box::new(ast::StmtKind::Break)
+                });
+            } else {
+                return err(ET::InvalidBreak, loc);
+            }
+        } else if self.looking_at(TT::Continue) {
+            if self.in_loop {
+                self.advance();
+                return Ok(ast::Stmt {
+                    loc: loc,
+                    kind: Box::new(ast::StmtKind::Continue)
+                });
+            } else {
+                return err(ET::InvalidContinue, loc);
+            }
+        } else {
+            return err(ET::Internal("stmt".to_string()), loc);
+        }
     }
 }
 

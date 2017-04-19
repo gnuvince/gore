@@ -80,8 +80,8 @@ impl VarDecl {
 
 #[derive(Debug)]
 pub struct Stmt {
-    kind: Box<StmtKind>,
-    loc: Loc
+    pub kind: Box<StmtKind>,
+    pub loc: Loc
 }
 
 #[derive(Debug)]
@@ -90,7 +90,7 @@ pub enum StmtKind {
     Break,
     Continue,
     Return { expr: Option<Expr> },
-    Print { expr: Vec<Expr>, newline: bool },
+    Print { exprs: Vec<Expr>, newline: bool },
     VarDecl { decl: VarDecl },
     TypeDecl { decl: TypeDecl },
     ShortDecl { ids: Vec<Id>, exprs: Vec<Expr> },
@@ -216,4 +216,10 @@ pub enum Ty {
 pub struct Param {
     name: Id,
     ty: Box<Ty>
+}
+
+impl Param {
+    pub fn new(name: Id, ty: Ty) -> Param {
+        return Param { name: name, ty: Box::new(ty) };
+    }
 }

@@ -32,6 +32,8 @@ pub enum GoreErrorType {
     VarExprLengthMismatch,
     InvalidTypeDecl,
     ExpectedParamList,
+    InvalidBreak,
+    InvalidContinue,
 }
 
 impl GoreErrorType {
@@ -94,6 +96,8 @@ impl error::Error for GoreError {
                 "variable list and expression list must have the same length",
             InvalidTypeDecl => "invalid type declaration",
             ExpectedParamList => "expected list of parameters",
+            InvalidBreak => "break must occur inside loop or switch statement",
+            InvalidContinue => "continue must occur inside loop",
         }
     }
 }
