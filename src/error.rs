@@ -10,6 +10,7 @@ pub enum GoreErrorType {
     // Scanner errors
     UnrecognizedCharacter,
     TrailingBlockComment,
+    MalformedOctLiteral,
     MalformedHexLiteral,
     TrailingString,
     TrailingRune,
@@ -26,6 +27,7 @@ impl GoreErrorType {
             Internal => "internal compiler error",
             UnrecognizedCharacter => "unrecognized character",
             TrailingBlockComment => "unfinished block comment",
+            MalformedOctLiteral => "malformed octal literal",
             MalformedHexLiteral => "malformed hexadecimal literal",
             TrailingString => "unfinished string literal",
             TrailingRune => "unfinished rune literal",
@@ -42,6 +44,7 @@ impl GoreErrorType {
             Internal => ('I', 1),
             UnrecognizedCharacter => ('S', 1),
             TrailingBlockComment => ('S', 2),
+            MalformedOctLiteral => ('S', 10),
             MalformedHexLiteral => ('S', 3),
             TrailingString => ('S', 4),
             TrailingRune => ('S', 5),

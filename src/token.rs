@@ -16,7 +16,7 @@ pub enum TokenType {
     Append, Print, Println,
 
     // Literals
-    Blank, Int, IntHex, Float, String, Rune, Id,
+    Blank, Int, IntOct, IntHex, Float, String, Rune, Id,
 
     // Operators and punctuation
     Plus, Minus, Star, Slash, Percent,           // + - * / %
@@ -62,6 +62,7 @@ impl fmt::Display for TokenType {
 
             Blank => "_",
             Int => "<int>",
+            IntOct => "<int oct>",
             IntHex => "<int hex>",
             Float => "<float>",
             String => "<string>",

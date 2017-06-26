@@ -28,26 +28,30 @@ impl Scanner {
         }
     }
 
-    /// Helper function to see if the next few characters match.
-    fn looking_at(&self, bytes: &[u8]) -> bool {
+    /// Returns `true` if the next elements of the
+    /// input buffer (`src`) are equal to `bytes`.
+    fn looking_at(&mut self, bytes: &[u8]) -> bool {
         for (i, b) in bytes.iter().enumerate() {
             if self.peek_at(self.pos + i) != *b {
                 return false;
             }
         }
+        self.pos += bytes.len();
         return true;
     }
 
-    /// Return the character at the current position.
+    /// Returns the byte at the current position.
     fn peek(&self) -> u8 {
         self.peek_at(self.pos)
     }
 
-    /// Return the character at the next position
+    /// Returns the byte at the next position.
     fn peek_next(&self) -> u8 {
         self.peek_at(self.pos + 1)
     }
 
+    /// Returns the byte at the current position,
+    /// or 0 if at the end of the input.
     fn peek_at(&self, offset: usize) -> u8 {
         if offset >= self.src.len() {
             return 0;
@@ -55,7 +59,8 @@ impl Scanner {
         return self.src[offset];
     }
 
-    // TODO(vfoley): version with count?
+    /// Moves the current position forward by one
+    /// and updates the line and column information.
     fn advance(&mut self) {
         // unix-only newlines for now
         if self.peek() == b'\n' {
@@ -67,18 +72,21 @@ impl Scanner {
         self.pos += 1;
     }
 
-    fn eat(&mut self, n: usize, ty: TT) -> Token {
+    /// Consumes `n` bytes of input and returns
+    /// a token of the given type starting positioned
+    /// at the current location.
+    fn tok_nolex(&mut self, ty: TT) -> Token {
         let t = Token::new(ty, self.loc(), None);
-        for _ in 0 .. n {
-            self.advance();
-        }
         return t;
     }
 
+    /// Returns true if the input has been entirely consumed.
     fn eof(&self) -> bool {
-        self.peek() == 0
+        self.pos >= self.src.len()
     }
 
+
+    /// Returns the current location in the input.
     fn loc(&self) -> Loc {
         Loc::new(&self.filename, self.line, self.col)
     }
@@ -86,6 +94,13 @@ impl Scanner {
 
     // SCANNING METHODS
 
+    /// Consumes the input and returns either the
+    /// next token or an error.
+    ///
+    /// This function should be called in a loop
+    /// until a token with the type `TokenType::EOF`
+    /// is returned.
+    // TODO(vfoley): make scanner into an iterator?
     pub fn next(&mut self) -> Result<Token> {
         // Skip whitespace and comments.
         // If a token is returned (i.e., a semi-colon
@@ -113,53 +128,53 @@ impl Scanner {
             // Operators and punctuation.
             // OPTIMIZE(vfoley): use nesting to avoid
             // looking at the same character multiple times.
-            else if self.looking_at(b"<<=") { self.eat(3, TT::LeftShiftEq) }
-            else if self.looking_at(b">>=") { self.eat(3, TT::RightShiftEq) }
-            else if self.looking_at(b":=")  { self.eat(2, TT::ColonEq) }
-            else if self.looking_at(b"+=")  { self.eat(2, TT::PlusEq) }
-            else if self.looking_at(b"-=")  { self.eat(2, TT::MinusEq) }
-            else if self.looking_at(b"*=")  { self.eat(2, TT::StarEq) }
-            else if self.looking_at(b"/=")  { self.eat(2, TT::SlashEq) }
-            else if self.looking_at(b"%=")  { self.eat(2, TT::PercentEq) }
-            else if self.looking_at(b"|=")  { self.eat(2, TT::BitorEq) }
-            else if self.looking_at(b"&=")  { self.eat(2, TT::BitandEq) }
-            else if self.looking_at(b"++")  { self.eat(2, TT::Incr) }
-            else if self.looking_at(b"--")  { self.eat(2, TT::Decr) }
-            else if self.looking_at(b"<<")  { self.eat(2, TT::LeftShift) }
-            else if self.looking_at(b">>")  { self.eat(2, TT::RightShift) }
-            else if self.looking_at(b"&^")  { self.eat(2, TT::BitClear) }
-            else if self.looking_at(b"&&")  { self.eat(2, TT::And) }
-            else if self.looking_at(b"||")  { self.eat(2, TT::Or) }
-            else if self.looking_at(b"==")  { self.eat(2, TT::Eq) }
-            else if self.looking_at(b"!=")  { self.eat(2, TT::Ne) }
-            else if self.looking_at(b"<=")  { self.eat(2, TT::Le) }
-            else if self.looking_at(b">=")  { self.eat(2, TT::Ge) }
-            else if self.looking_at(b"=")   { self.eat(1, TT::Assign) }
-            else if self.looking_at(b"+")   { self.eat(1, TT::Plus) }
-            else if self.looking_at(b"-")   { self.eat(1, TT::Minus) }
-            else if self.looking_at(b"*")   { self.eat(1, TT::Star) }
-            else if self.looking_at(b"/")   { self.eat(1, TT::Slash) }
-            else if self.looking_at(b"%")   { self.eat(1, TT::Percent) }
-            else if self.looking_at(b"^")   { self.eat(1, TT::Bitnot) }
-            else if self.looking_at(b"&")   { self.eat(1, TT::Bitand) }
-            else if self.looking_at(b"|")   { self.eat(1, TT::Bitor) }
-            else if self.looking_at(b"!")   { self.eat(1, TT::Not) }
-            else if self.looking_at(b"<")   { self.eat(1, TT::Lt) }
-            else if self.looking_at(b">")   { self.eat(1, TT::Gt) }
-            else if self.looking_at(b"(")   { self.eat(1, TT::LParen) }
-            else if self.looking_at(b")")   { self.eat(1, TT::RParen) }
-            else if self.looking_at(b"[")   { self.eat(1, TT::LBracket) }
-            else if self.looking_at(b"]")   { self.eat(1, TT::RBracket) }
-            else if self.looking_at(b"{")   { self.eat(1, TT::LBrace) }
-            else if self.looking_at(b"}")   { self.eat(1, TT::RBrace) }
-            else if self.looking_at(b",")   { self.eat(1, TT::Comma) }
-            else if self.looking_at(b";")   { self.eat(1, TT::Semi) }
-            else if self.looking_at(b":")   { self.eat(1, TT::Colon) }
+            else if self.looking_at(b"<<=") { self.tok_nolex(TT::LeftShiftEq) }
+            else if self.looking_at(b">>=") { self.tok_nolex(TT::RightShiftEq) }
+            else if self.looking_at(b":=")  { self.tok_nolex(TT::ColonEq) }
+            else if self.looking_at(b"+=")  { self.tok_nolex(TT::PlusEq) }
+            else if self.looking_at(b"-=")  { self.tok_nolex(TT::MinusEq) }
+            else if self.looking_at(b"*=")  { self.tok_nolex(TT::StarEq) }
+            else if self.looking_at(b"/=")  { self.tok_nolex(TT::SlashEq) }
+            else if self.looking_at(b"%=")  { self.tok_nolex(TT::PercentEq) }
+            else if self.looking_at(b"|=")  { self.tok_nolex(TT::BitorEq) }
+            else if self.looking_at(b"&=")  { self.tok_nolex(TT::BitandEq) }
+            else if self.looking_at(b"++")  { self.tok_nolex(TT::Incr) }
+            else if self.looking_at(b"--")  { self.tok_nolex(TT::Decr) }
+            else if self.looking_at(b"<<")  { self.tok_nolex(TT::LeftShift) }
+            else if self.looking_at(b">>")  { self.tok_nolex(TT::RightShift) }
+            else if self.looking_at(b"&^")  { self.tok_nolex(TT::BitClear) }
+            else if self.looking_at(b"&&")  { self.tok_nolex(TT::And) }
+            else if self.looking_at(b"||")  { self.tok_nolex(TT::Or) }
+            else if self.looking_at(b"==")  { self.tok_nolex(TT::Eq) }
+            else if self.looking_at(b"!=")  { self.tok_nolex(TT::Ne) }
+            else if self.looking_at(b"<=")  { self.tok_nolex(TT::Le) }
+            else if self.looking_at(b">=")  { self.tok_nolex(TT::Ge) }
+            else if self.looking_at(b"=")   { self.tok_nolex(TT::Assign) }
+            else if self.looking_at(b"+")   { self.tok_nolex(TT::Plus) }
+            else if self.looking_at(b"-")   { self.tok_nolex(TT::Minus) }
+            else if self.looking_at(b"*")   { self.tok_nolex(TT::Star) }
+            else if self.looking_at(b"/")   { self.tok_nolex(TT::Slash) }
+            else if self.looking_at(b"%")   { self.tok_nolex(TT::Percent) }
+            else if self.looking_at(b"^")   { self.tok_nolex(TT::Bitnot) }
+            else if self.looking_at(b"&")   { self.tok_nolex(TT::Bitand) }
+            else if self.looking_at(b"|")   { self.tok_nolex(TT::Bitor) }
+            else if self.looking_at(b"!")   { self.tok_nolex(TT::Not) }
+            else if self.looking_at(b"<")   { self.tok_nolex(TT::Lt) }
+            else if self.looking_at(b">")   { self.tok_nolex(TT::Gt) }
+            else if self.looking_at(b"(")   { self.tok_nolex(TT::LParen) }
+            else if self.looking_at(b")")   { self.tok_nolex(TT::RParen) }
+            else if self.looking_at(b"[")   { self.tok_nolex(TT::LBracket) }
+            else if self.looking_at(b"]")   { self.tok_nolex(TT::RBracket) }
+            else if self.looking_at(b"{")   { self.tok_nolex(TT::LBrace) }
+            else if self.looking_at(b"}")   { self.tok_nolex(TT::RBrace) }
+            else if self.looking_at(b",")   { self.tok_nolex(TT::Comma) }
+            else if self.looking_at(b";")   { self.tok_nolex(TT::Semi) }
+            else if self.looking_at(b":")   { self.tok_nolex(TT::Colon) }
             // Special case: a float literal can start with a period in Go
             else if self.peek() == b'.' && is_digit(self.peek_next()) {
                 self.number()?
             }
-            else if self.looking_at(b".") { self.eat(1, TT::Dot) }
+            else if self.looking_at(b".") { self.tok_nolex(TT::Dot) }
             else if is_alpha(self.peek()) { self.id_or_keyword() }
             else if is_digit(self.peek()) { self.number()? }
             else if self.peek() == b'"'   { self.interpreted_string()?}
@@ -178,7 +193,7 @@ impl Scanner {
     //   must be inserted in the token stream;
     // - Ok(None): when no token need be inserted in the stream;
     // - Err(error): when an error occurs (e.g., trailing block comment)
-    // TODO(vfoley): ugly and nasty, refactor.
+    // TODO(vfoley): ugly and nasty: refactor.
     fn skip_whitespace_and_comments(&mut self) -> Result<Option<Token>> {
         loop {
             if is_whitespace(self.peek()) {
@@ -194,10 +209,12 @@ impl Scanner {
             }
 
             if self.looking_at(b"/*") {
-                match self.skip_block_comment() {
-                    Ok(None) => { continue; }
-                    Ok(some_tok) => { return Ok(some_tok); }
-                    Err(err) => { return Err(err); }
+                let has_newline = self.skip_block_comment()?;
+                if has_newline && self.needs_semicolon() {
+                    let start_loc = self.loc();
+                    return Ok(Some(Token::new(TT::Semi, start_loc, None)));
+                } else {
+                    continue;
                 }
             }
 
@@ -206,11 +223,15 @@ impl Scanner {
         return Ok(None);
     }
 
+    /// Returns `true` if a token at the end of
+    /// a line needs to be followed by a semi-colon.
+    /// Ref.: https://golang.org/ref/spec#Semicolons
     fn needs_semicolon(&self) -> bool {
         match self.last_tok {
             TT::Id
             | TT::Blank
             | TT::Int
+            | TT::IntOct
             | TT::IntHex
             | TT::Float
             | TT::Rune
@@ -228,6 +249,9 @@ impl Scanner {
         }
     }
 
+    /// Returns `Ok(Semicolon)` if a newline occurs after
+    /// a token that terminates a statement, otherwise returns
+    /// `None`.
     fn skip_whitespace(&mut self) -> Option<Token> {
         while is_whitespace(self.peek()) {
             if self.peek() == b'\n' && self.needs_semicolon() {
@@ -238,41 +262,33 @@ impl Scanner {
         return None;
     }
 
+    /// Skips over a line comment, but does not consume
+    /// the newline character at the end.
     fn skip_line_comment(&mut self) {
-        // self.pos is still pointing at "//"
-        self.advance();
-        self.advance();
         while !self.eof() && self.peek() != b'\n' {
             self.advance();
         }
     }
 
-    fn skip_block_comment(&mut self) -> Result<Option<Token>> {
-        // self.pos is still pointing at "/*"
+    /// Skips over a block comment.
+    /// Returns `Some(true)` if the comment contains at least one newline;
+    /// returns `Some(false)` if the comment doesn't contain a newline;
+    /// return `Err(...)` otherwise.
+    fn skip_block_comment(&mut self) -> Result<bool> {
         let start_loc = self.loc();
         let mut has_newline = false;
-        self.advance();
-        self.advance();
         while !self.eof() && !self.looking_at(b"*/") {
-            if self.peek() == b'\n' {
-                has_newline = true;
-            }
+            has_newline = has_newline || self.peek() == b'\n';
             self.advance();
         }
         if self.eof() {
             return err(ET::TrailingBlockComment, start_loc);
         } else {
-            // skip over "*/"
-            self.advance();
-            self.advance();
-            if has_newline && self.needs_semicolon() {
-                return Ok(Some(Token::new(TT::Semi, start_loc, None)));
-            } else {
-                return Ok(None);
-            }
+            return Ok(has_newline);
         }
     }
 
+    /// Returns a token for an identifier or a keyword.
     fn id_or_keyword(&mut self) -> Token {
         let start_loc = self.loc();
         let mut name = String::new();
@@ -305,6 +321,7 @@ impl Scanner {
         return Token::new(ty, start_loc, lexeme);
     }
 
+    /// Returns a token for a numeric literal.
     fn number(&mut self) -> Result<Token> {
         if self.looking_at(b"0x") || self.looking_at(b"0X") {
             return self.hex();
@@ -316,9 +333,6 @@ impl Scanner {
     fn hex(&mut self) -> Result<Token> {
         let start_loc = self.loc();
         let mut digits = String::new();
-        // skip over "0x" or "0X"
-        self.advance();
-        self.advance();
         while is_hex(self.peek()) {
             digits.push(self.peek() as char);
             self.advance();
@@ -332,6 +346,7 @@ impl Scanner {
 
     fn decimal_or_octal(&mut self) -> Result<Token> {
         let start_loc = self.loc();
+        let starts_with_zero = self.peek() == b'0';
         let mut digits = String::new();
 
         while is_digit(self.peek()) {
@@ -343,6 +358,12 @@ impl Scanner {
             digits.push('.');
             self.advance();
             return self.float_literal(start_loc, digits);
+        } else if starts_with_zero {
+            if digits.bytes().all(|d| d >= b'0' && d <= b'7') {
+                return Ok(Token::new(TT::IntOct, start_loc, Some(digits)));
+            } else {
+                return err(ET::MalformedOctLiteral, start_loc);
+            }
         } else {
             return Ok(Token::new(TT::Int, start_loc, Some(digits)));
         }
@@ -406,8 +427,7 @@ impl Scanner {
             }
             // Carriage returns are discarded in raw strings
             if self.looking_at(b"\\r") {
-                self.advance();
-                self.advance();
+                continue;
             } else {
                 content.push(self.peek() as char);
                 self.advance();

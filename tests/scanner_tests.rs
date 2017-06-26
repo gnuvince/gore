@@ -216,15 +216,15 @@ fn test_hex() {
 
 #[test]
 fn test_octal() {
-    assert_tok(TT::Int, b"0");
-    assert_tok(TT::Int, b"01");
-    assert_tok(TT::Int, b"02");
-    assert_tok(TT::Int, b"03");
-    assert_tok(TT::Int, b"04");
-    assert_tok(TT::Int, b"05");
-    assert_tok(TT::Int, b"06");
-    assert_tok(TT::Int, b"07");
-    assert_tok(TT::Int, b"0377");
+    assert_tok(TT::IntOct, b"0");
+    assert_tok(TT::IntOct, b"01");
+    assert_tok(TT::IntOct, b"02");
+    assert_tok(TT::IntOct, b"03");
+    assert_tok(TT::IntOct, b"04");
+    assert_tok(TT::IntOct, b"05");
+    assert_tok(TT::IntOct, b"06");
+    assert_tok(TT::IntOct, b"07");
+    assert_tok(TT::IntOct, b"0377");
 
     assert_lexeme("0", b"0");
     assert_lexeme("01", b"01");
@@ -235,11 +235,14 @@ fn test_octal() {
     assert_lexeme("06", b"06");
     assert_lexeme("07", b"07");
     assert_lexeme("0377", b"0377");
+
+    assert_err(ET::MalformedOctLiteral, b"08");
+    assert_err(ET::MalformedOctLiteral, b"09");
 }
 
 #[test]
 fn test_decimal() {
-    assert_tok(TT::Int, b"0");
+    assert_tok(TT::IntOct, b"0");
     assert_tok(TT::Int, b"1");
     assert_tok(TT::Int, b"2");
     assert_tok(TT::Int, b"3");
