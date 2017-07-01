@@ -2,7 +2,7 @@ extern crate gore;
 
 use gore::token::Token;
 use gore::token::TokenType as TT;
-use gore::error::GoreErrorType as ET;
+use gore::error::ErrorType as ET;
 use gore::scanner::Scanner;
 
 fn assert_tok(expected_ty: TT, src: &[u8]) {

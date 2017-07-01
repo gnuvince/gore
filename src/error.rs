@@ -3,8 +3,14 @@ use std::error;
 use std::fmt;
 use std::result;
 
+pub type Result<T> = result::Result<T, Error>;
+
+pub fn err<T>(ty: ErrorType, loc: Loc) -> Result<T> {
+    Err(Error::new(ty, loc))
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum GoreErrorType {
+pub enum ErrorType {
     Internal,
 
     // Scanner errors
@@ -20,9 +26,9 @@ pub enum GoreErrorType {
     EmptyRune,
 }
 
-impl GoreErrorType {
+impl ErrorType {
     fn to_str(&self) -> &str {
-        use self::GoreErrorType::*;
+        use self::ErrorType::*;
         match *self {
             Internal => "internal compiler error",
             UnrecognizedCharacter => "unrecognized character",
@@ -37,67 +43,34 @@ impl GoreErrorType {
             EmptyRune => "empty rune literal",
         }
     }
-
-    fn code(&self) -> (char, u16) {
-        use self::GoreErrorType::*;
-        match *self {
-            Internal => ('I', 1),
-            UnrecognizedCharacter => ('S', 1),
-            TrailingBlockComment => ('S', 2),
-            MalformedOctLiteral => ('S', 10),
-            MalformedHexLiteral => ('S', 3),
-            TrailingString => ('S', 4),
-            TrailingRune => ('S', 5),
-            InvalidEscape => ('S', 6),
-            NewlineInString => ('S', 7),
-            NewlineInRune => ('S', 8),
-            EmptyRune => ('S', 9),
-        }
-    }
 }
 
-impl fmt::Display for GoreErrorType {
+impl fmt::Display for ErrorType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let (category, id) = self.code();
-        write!(f, "{} ({}{:03})", self.to_str(), category, id)
+        write!(f, "{}", self.to_str())
     }
 }
-
-impl error::Error for GoreErrorType {
-    fn description(&self) -> &str {
-        self.to_str()
-    }
-}
-
 
 #[derive(Debug)]
-pub struct GoreError {
-    pub ty: GoreErrorType,
+pub struct Error {
+    pub ty: ErrorType,
     pub loc: Loc
 }
 
-impl fmt::Display for GoreError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}: {}", self.loc, self.ty)
     }
 }
 
-impl error::Error for GoreError {
+impl error::Error for Error {
     fn description(&self) -> &str {
-        self.ty.description()
+        self.ty.to_str()
     }
 }
 
-impl GoreError {
-    pub fn new(ty: GoreErrorType, loc: Loc) -> GoreError {
-        GoreError {
-            ty: ty, loc: loc
-        }
+impl Error {
+    pub fn new(ty: ErrorType, loc: Loc) -> Error {
+        Error { ty: ty, loc: loc }
     }
-}
-
-pub type Result<T> = result::Result<T, GoreError>;
-
-pub fn err<T>(ty: GoreErrorType, loc: Loc) -> Result<T> {
-    Err(GoreError::new(ty, loc))
 }

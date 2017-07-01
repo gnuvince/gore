@@ -1,6 +1,6 @@
 use loc::Loc;
 use error::{Result, err};
-use error::GoreErrorType as ET;
+use error::ErrorType as ET;
 use token::Token;
 use token::TokenType as TT;
 

@@ -5,7 +5,7 @@ extern crate gore;
 
 use gore::token::Token;
 use gore::scanner::Scanner;
-use gore::error::GoreError;
+use gore::error::Error;
 
 fn main() {
     let mut stdin = io::stdin();
@@ -41,7 +41,7 @@ fn scan(scanner: &mut Scanner) {
 }
 
 
-fn all_tokens(scanner: &mut Scanner) -> Result<Vec<Token>, GoreError> {
+fn all_tokens(scanner: &mut Scanner) -> Result<Vec<Token>, Error> {
     let mut toks = Vec::new();
     loop {
         match scanner.next() {
