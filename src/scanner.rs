@@ -36,7 +36,9 @@ impl Scanner {
                 return false;
             }
         }
-        self.pos += bytes.len();
+        for _ in 0 .. bytes.len() {
+            self.advance();
+        }
         return true;
     }
 
